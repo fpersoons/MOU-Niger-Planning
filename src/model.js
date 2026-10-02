@@ -117,7 +117,7 @@ export const accrualsTotal = (accruals) =>
 export const DEFAULT_RESERVES = { 2026: 1800000, 2027: 1500000, 2028: 1300000, 2029: 1000000, 2030: 800000 };
 
 // Méthode de calcul des quantités des intrants réguliers en FY27-FY30 :
-//  quantif — tout le budget réparti selon le split PSN (base EXW) : quantités maximales ;
+//  quantif — tout le budget réparti selon le split contribution USG (base EXW) : quantités maximales ;
 //  manual  — quantités saisies directement.
 // (L'ancienne répartition selon le split FY25 a été retirée : les scénarios qui
 // l'utilisaient passent en « quantif ».)
@@ -126,7 +126,7 @@ export const METHODS = ['quantif', 'manual'];
 export const PSN_LABEL = 'Quantités prévues d’être couvertes par le Gouvernement américain (USG) dans la quantification du Plan stratégique 2027-2031 (PSN)';
 export const PSN_SHORT = 'Quantité prévue pour l’USG (quantification PSN 2027-2031)';
 
-export const METHOD_LABEL = { quantif: 'Automatique (split PSN)', manual: 'Ajusté manuellement' };
+export const METHOD_LABEL = { quantif: 'Automatique (split contribution USG)', manual: 'Ajusté manuellement' };
 export const DEFAULT_METHODS = { 2027: 'quantif', 2028: 'quantif', 2029: 'quantif', 2030: 'quantif' };
 
 // FY2026 (clos le 30/09/2026) : « planned » = les quantités FY26 saisies ont été
@@ -297,7 +297,7 @@ const allocate = (budget, weights, price, rate) => {
   return { eTot, qtys };
 };
 
-/** Split PSN d'une année : part de chaque intrant dans la valeur EXW des quantités PSN. */
+/** Split contribution USG d'une année : part de chaque intrant dans la valeur EXW des quantités PSN. */
 export const psnSplit = (data, year) => {
   const values = Object.fromEntries(REGULAR.map((c) => [c.id,
     floorQty(num(data.quantification?.[year]?.[c.id])) * num(data.commodities[c.id]?.price)]));
@@ -316,7 +316,7 @@ export const quantitiesFor = (data, year, method, residual) => {
   // quantif
   {
     const weights = psnSplit(data, year);
-    // Tout le budget est réparti selon le split PSN (quantités maximales achetables).
+    // Tout le budget est réparti selon le split contribution USG (quantités maximales achetables).
     return allocate(residual, weights, price, rate);
   }
 };

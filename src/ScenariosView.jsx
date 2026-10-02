@@ -1,6 +1,6 @@
 // ─── Vue 3 : scénarios ───────────────────────────────────────────────────────
 // Par année fiscale FY2027-FY2030 : quantités générées automatiquement selon le
-// split PSN (tout le budget), ou quantités maximales achetables ajustées à la main.
+// split contribution USG (tout le budget), ou quantités maximales achetables ajustées à la main.
 // Transport (avion / bateau + route) et quantités à commander.
 
 import { useState } from 'react';
@@ -63,7 +63,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h3 className="text-[14px] font-bold text-chem-darkblue">FY{yr.year}</h3>
           <Segmented label={`Calcul FY${yr.year}`} value={yr.method} onChange={onMethod}
-            options={[{ value: 'quantif', label: 'Automatique (split PSN)' }, { value: 'manual', label: 'Ajusté manuellement' }]} />
+            options={[{ value: 'quantif', label: 'Automatique (split contribution USG)' }, { value: 'manual', label: 'Ajusté manuellement' }]} />
           <Segmented label={`Transport FY${yr.year}`} value={yr.mode} onChange={onMode}
             options={[{ value: 'air', label: MODE_PLAIN.air, icon: <Plane w={11} /> }, { value: 'sea', label: MODE_PLAIN.sea, icon: <Truck w={11} /> }]} />
           <span className="ml-auto text-right text-[11px] tabular-nums">
@@ -77,7 +77,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
       <div className="px-3 py-2 border-b border-chem-gray1-10 text-[11px] text-chem-gray1 space-y-1">
         <p>
           Budget pour les produits : <strong>{fmtUsd(yr.available, 0)}</strong>{yr.bonus ? <span className="text-chem-gray2"> (dont report reçu {fmtUsd(yr.bonus, 0)})</span> : null} · commandé : <strong>{fmtUsd(yr.total, 0)}</strong> (livré au Niger, transport compris)
-          {manual ? ' · quantités ajustées à la main' : ' · tout le budget est réparti selon le split PSN'}.
+          {manual ? ' · quantités ajustées à la main' : ' · tout le budget est réparti selon le split contribution USG'}.
         </p>
         {upcoming && (
           <p className={`text-[10px] flex items-start gap-1.5 ${yr.mode === 'air' ? 'text-chem-gray2' : NEG.text}`}>
@@ -88,7 +88,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
 
       {!hasPsn && (
         <p className={`px-3 py-1.5 text-[11px] ${NEG.text} ${NEG.bg} border-b border-chem-gray1-10 flex flex-wrap items-center gap-1.5`}>
-          <AlertTriangle w={12} /> Pas de quantités prévues pour l’USG dans la quantification du PSN 2027-2031 pour {yr.year} : le split ne peut pas être calculé.
+          <AlertTriangle w={12} /> Pas de quantités prévues pour l’USG dans la quantification du PSN 2027-2031 pour {yr.year} : le split contribution USG ne peut pas être calculé.
           <button type="button" onClick={goToLogistics} className="font-semibold underline">Saisir les quantités USG du PSN (paramètres logistiques)</button>
         </p>
       )}

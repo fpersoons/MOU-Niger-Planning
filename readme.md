@@ -5,7 +5,7 @@ fiscales (FY2026-FY2030) dans le cadre du MOU Niger (programme **GHSC-PSM**).
 
 - Report lissé du surplus FY26 sur FY27-FY30 (surplus / 4).
 - Arbitrage du fret Air / Mer par exercice ; MILDA uniquement par mer, en saisie manuelle.
-- Répartition FY27-FY30 selon la **quantification PSN** (split calculé sur base EXW) ou quantités saisies.
+- Répartition FY27-FY30 selon la **quantification PSN** (split contribution USG calculé sur base EXW) ou quantités saisies.
 - Un scénario de travail enregistré automatiquement dans le navigateur (JSON, sans base de données) ; réinitialisation aux valeurs par défaut ; téléchargement / chargement en fichier.
 - Export Excel (.xlsx, ExcelJS) de chaque scénario ; téléchargement / chargement d'un scénario.
 

@@ -63,7 +63,7 @@ relus : le scénario actif est repris. Écriture avec un debounce de 1,5 s ;
   assistance engagée, `carryover`) sont convertis sans changer leur résultat.
 - FY27-30 : `dispo = budget + report reçu − réserve − accruals` ; solde = dispo − commandes ; `résiduel = dispo − coût landed MILDA`.
   Quantités des intrants réguliers (`quantitiesFor`) selon `methods[y]` :
-  - `quantif` (« Automatique (split PSN) ») : `w_i = Qq_i P_i / Σ Qq_j P_j`
+  - `quantif` (« Automatique (split contribution USG) ») : `w_i = Qq_i P_i / Σ Qq_j P_j`
     (split = poids EXW du PSN de l'année) ; `r_i = landed_i / P_i − 1` selon le
     mode ; `E_tot = résiduel / Σ w_i (1 + r_i)` ; `Q_i = ⌊E_tot × w_i / P_i⌋` — tout
     le budget est utilisé (quantités maximales, sans plafond PSN) ;
@@ -86,7 +86,7 @@ Les autres valeurs par défaut viennent du même scénario : réserves 1,8 / 1,5
   totaux sur fond bleu très clair, cellules modifiables bleu clair, écarts et restes en
   vert / aubergine par mise en forme conditionnelle) :
   - feuille *Paramètres* : hypothèses modifiables (listes déroulantes pour le mode, la
-    méthode et la règle de report), fret % et split PSN calculés ;
+    méthode et la règle de report), fret % et split contribution USG calculés ;
   - feuille *Quantités et coûts* : **tout en formules** liées à *Paramètres*. Quantité
     automatique = `ARRONDI.INF(budget produits restant × qté PSN / SOMMEPROD(qté PSN ;
     prix livré), 0)` (équivalent exact de `allocate`), ou quantité manuelle selon la
