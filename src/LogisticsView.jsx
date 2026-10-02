@@ -1,6 +1,6 @@
 // ─── Vue 2 : paramètres logistiques ──────────────────────────────────────────
 // Coûts unitaires par intrant (EXW, livré bateau + route, livré avion), quantités
-// financées par l'USG dans le PSN 2027-2031 (d'où le split en %).
+// financées par l'USG dans le PSN 2027-2031 (d'où le split contribution USG en %).
 
 import { COMMODITIES, PSN_LABEL, PSN_YEARS, REGULAR, freightRate, num, psnSplit, referenceCosts } from './model.js';
 import { Layers, Package, RotateCcw, Truck } from './icons.jsx';
@@ -73,7 +73,7 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
 
       {/* ─── PSN 2027-2031 ─── */}
       <Section icon={Layers} title="Quantités USG — quantification du PSN 2027-2031"
-        subtitle={`${PSN_LABEL}. Saisissez-les par intrant et par année. Le split (part de chaque intrant dans la valeur de l’année) se calcule automatiquement et sert à répartir le budget dans les scénarios.`}>
+        subtitle={`${PSN_LABEL}. Saisissez-les par intrant et par année. Le split contribution USG (part de chaque intrant dans la valeur de l’année) se calcule automatiquement et sert à répartir le budget dans les scénarios.`}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-[11px] tabular-nums">
             <thead>

@@ -77,7 +77,7 @@ const f = (formula, result) => ({ formula, result });
 
 /**
  * Construit le classeur ExcelJS d'un scénario. Tout est calculé par formules à partir
- * de la feuille « Paramètres » (cellules bleu clair modifiables) : coûts, split PSN,
+ * de la feuille « Paramètres » (cellules bleu clair modifiables) : coûts, split contribution USG,
  * quantités (automatiques ou manuelles), totaux, budgets disponibles, reports et restes.
  * Les valeurs calculées par l'application sont jointes comme résultats en cache.
  */
@@ -164,7 +164,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   const psnCol = Object.fromEntries(PSN_YEARS.map((y, k) => [y, String.fromCharCode(66 + k)]));
   const psnRange = (y) => `${psnCol[y]}${psnRow[regular[0].id]}:${psnCol[y]}${psnRow[regular[regular.length - 1].id]}`;
   wp.addRow([]);
-  styleHeader(wp.addRow(['Split PSN (calculé, valeur EXW)', ...PSN_YEARS]));
+  styleHeader(wp.addRow(['Split contribution USG (calculé, valeur EXW)', ...PSN_YEARS]));
   const splits = Object.fromEntries(PSN_YEARS.map((y) => [y, psnSplit(data, y)]));
   for (const c of regular) {
     const r = wp.addRow([c.name]);

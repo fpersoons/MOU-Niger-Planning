@@ -37,7 +37,7 @@ années suivantes du MOU.
   choisi** pour l'année (avion ou bateau + route).
 - **Quantités USG — quantification du PSN 2027-2031** : quantités prévues d'être
   couvertes par le Gouvernement américain (USG) dans la quantification du Plan
-  stratégique 2027-2031 (PSN). Saisissez-les par intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
+  stratégique 2027-2031 (PSN). Saisissez-les par intrant et par année. Le **split contribution USG** (part de chaque intrant dans la valeur EXW de
   l'année) se calcule automatiquement ; 2031 est hors MOU (pour information).
 - Les **moustiquaires (MILDA)**, non prévues dans le MOU, sont masquées ; la case
   « Inclure les moustiquaires » les réaffiche si besoin.
@@ -46,8 +46,8 @@ années suivantes du MOU.
 
 Pour chaque année FY2027-FY2030 :
 
-- **Automatique (split PSN)** : tout le budget pour les produits est réparti selon le
-  split PSN de l'année.
+- **Automatique (split contribution USG)** : tout le budget pour les produits est
+  réparti selon le split contribution USG de l'année.
 - **Ajusté manuellement** : on part des **quantités maximales** achetables, puis on
   les modifie ; le reste du budget (ou le dépassement) se met à jour en direct.
 - **Transport** : avion ou bateau + route. Pour l'année à venir (FY2027), l'avion

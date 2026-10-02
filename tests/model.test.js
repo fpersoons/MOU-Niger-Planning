@@ -80,7 +80,7 @@ test('accruals et réserve des années suivantes déduits du budget produits', (
   close(simulate(d).years['2028'].assistance, 1600000);
 });
 
-test('FY27-30 : split PSN — budget saturé sans dépassement, split sur base EXW', () => {
+test('FY27-30 : split contribution USG — budget saturé sans dépassement, split sur base EXW', () => {
   const d = noLaterCarry(withPsn(defaultScenarioData()), 'smooth');
   d.includeMilda = true;
   d.manualQtys['2028'][11] = 100000;
@@ -108,7 +108,7 @@ test('PSN non saisi : aucune quantité calculée ; PSN 2027 par défaut', () => 
   assert.equal(yr.total, 0);
 });
 
-test('split PSN : budget insuffisant → réduction proportionnelle sans dépassement', () => {
+test('split contribution USG : budget insuffisant → réduction proportionnelle sans dépassement', () => {
   const d = withPsn(defaultScenarioData(), ['2027'], () => 1000000);
   const yr = simulate(d).years['2027'];
   assert.ok(yr.balance >= 0);
@@ -117,7 +117,7 @@ test('split PSN : budget insuffisant → réduction proportionnelle sans dépass
   assert.ok(Math.max(...cov) - Math.min(...cov) < 0.01, 'couverture uniforme');
 });
 
-test('split PSN : budget supérieur au PSN → tout le budget utilisé, au-delà des quantités PSN', () => {
+test('split contribution USG : budget supérieur au PSN → tout le budget utilisé, au-delà des quantités PSN', () => {
   const d = withPsn(defaultScenarioData(), ['2027'], () => 100);
   const yr = simulate(d).years['2027'];
   const reg = yr.lines.filter((x) => !x.isMilda && x.need > 0);
@@ -214,7 +214,7 @@ test('années fiscales : FY2027 = 1er octobre 2026 – 30 septembre 2027', () =>
   assert.deepEqual(fiscalYear('2027').end, new Date(2027, 8, 30));
 });
 
-test('coûts livrés : taux implicite et split PSN', () => {
+test('coûts livrés : taux implicite et split contribution USG', () => {
   const d = defaultScenarioData();
   close(freightRate(d.commodities[10], 'air'), 174, 0.01);
   close(freightRate(d.commodities[4], 'air'), 100, 0.01);
