@@ -96,21 +96,25 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
       {manual && (
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-chem-yellow/10 border-b border-chem-gray1-10">
           <span className="text-[10px] text-chem-gray2">Modifiez les quantités ci-dessous ; le reste du budget se met à jour.</span>
-          <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('quantif')}><RotateCcw w={10} /> Repartir des quantités maximales</button>
-          <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('need')}>Reprendre les quantités PSN</button>
+          <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('quantif')}><RotateCcw w={10} /> Repartir des quantités maximales selon le budget</button>
+          <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('need')}>Reprendre les quantités initiales du PSN</button>
         </div>
       )}
 
+      <p className="px-3 py-1.5 text-[10px] text-chem-darkblue bg-chem-blue-10 border-b border-chem-blue-20">
+        Les <strong>quantités commandables</strong> sont les quantités initialement prévues au PSN pour l’USG, <strong>ajustées pour rester dans le budget disponible</strong> de FY{yr.year}.
+        Le pourcentage indique la part des quantités initiales du PSN que ce budget permet de couvrir.
+      </p>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[680px] text-[11px] tabular-nums">
+        <table className="w-full min-w-[720px] text-[11px] tabular-nums">
           <thead>
             <tr className="text-[9px] font-semibold uppercase text-chem-gray2 bg-chem-gray1-5 border-b border-chem-gray1-20">
               <th className="px-2 py-1.5 text-left">Produit</th>
               <th className="px-2 py-1.5 text-right">Split PSN</th>
-              <th className="px-2 py-1.5 text-right">Quantité à commander</th>
+              <th className="px-2 py-1.5 text-right">Quantité commandable<span className="block normal-case font-normal">ajustée au budget disponible</span></th>
               <th className="px-2 py-1.5 text-right">Coût livré</th>
-              <th className="px-2 py-1.5 text-right">PSN {yr.year}</th>
-              <th className="px-2 py-1.5 text-right">Couverture PSN</th>
+              <th className="px-2 py-1.5 text-right">Quantité initiale PSN {yr.year}<span className="block normal-case font-normal">prévue pour l’USG</span></th>
+              <th className="px-2 py-1.5 text-right">% du PSN couvert<span className="block normal-case font-normal">par le budget disponible</span></th>
             </tr>
           </thead>
           <tbody>

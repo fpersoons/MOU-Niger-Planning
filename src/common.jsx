@@ -41,7 +41,7 @@ export const ModeIcon = ({ mode, w = 11 }) => (mode === 'air' ? <Plane w={w} /> 
 /** Texte prêt à coller dans un e-mail pour un exercice. */
 export const emailText = (scenarioName, yr) => {
   const lines = [];
-  lines.push(`MOU Niger — Quantités proposées FY${yr.year} (scénario « ${scenarioName} »)`);
+  lines.push(`MOU Niger — Quantités commandables FY${yr.year}, ajustées au budget disponible (scénario « ${scenarioName} »)`);
   const parts = [`budget ${fmtUsd(yr.base, 0)}`];
   if (yr.reserve) parts.push(`− réserve assistance ${fmtUsd(yr.reserve, 0)}`);
   if (yr.bonus) parts.push(`${yr.bonus >= 0 ? '+' : '−'} report reçu ${fmtUsd(Math.abs(yr.bonus), 0)}`);
@@ -51,7 +51,7 @@ export const emailText = (scenarioName, yr) => {
   lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()}`);
   lines.push('');
   for (const l of yr.lines.filter((x) => x.qty > 0)) {
-    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} × ${l.unit} — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (PSN ${fmtNum(l.need)}, couverture ${fmtNum(l.coverage * 100, 0)} %)` : ''}`);
+    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} × ${l.unit} — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (quantité initiale PSN ${fmtNum(l.need)}, soit ${fmtNum(l.coverage * 100, 0)} % couvert par le budget)` : ''}`);
   }
   lines.push('');
   lines.push(`Total estimé (produits + transport) : ${fmtUsd(yr.total, 0)}`);

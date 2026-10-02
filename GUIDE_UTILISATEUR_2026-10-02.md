@@ -51,8 +51,11 @@ Pour chaque année FY2027-FY2030 :
 - **Transport** : avion ou bateau + route. Pour l'année à venir (FY2027), l'avion
   est retenu par défaut pour respecter le plan d'approvisionnement ; l'équipe
   choisit ensuite selon les dates du plan.
-- Par produit : split PSN, **quantité à commander** (en unités d'achat), coût livré,
-  quantité PSN et **couverture**.
+- Par produit : split PSN, **quantité commandable** (en unités d'achat) — c'est-à-dire
+  la quantité initiale prévue au PSN pour l'USG, **ajustée pour rester dans le budget
+  disponible** —, coût livré, **quantité initiale du PSN** et **% du PSN couvert par
+  le budget** (part des quantités initialement planifiées que le budget permet
+  d'acheter).
 - **Copier pour un e-mail**, **synthèse FY2027-FY2030** et **Exporter en Excel**.
 
 ## Scénarios enregistrés

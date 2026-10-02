@@ -93,7 +93,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   // ─── Feuille 0 : quantités à commander (langage courant, à transmettre) ───
   const wo = wb.addWorksheet('Quantités à commander', { views: [{ showGridLines: false }] });
   wo.columns = [{ width: 46 }, { width: 40 }, { width: 18 }, { width: 22 }, { width: 18 }, { width: 13 }];
-  const ot = wo.addRow(['MOU Niger — Quantités à commander FY2027-FY2030']);
+  const ot = wo.addRow(['MOU Niger — Quantités commandables FY2027-FY2030 (quantités initiales du PSN pour l\'USG, ajustées au budget disponible)']);
   ot.getCell(1).font = { ...FONT, bold: true };
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
@@ -105,7 +105,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]}`]);
     wo.mergeCells(title.number, 1, title.number, 6);
     title.getCell(1).font = { ...FONT, bold: true };
-    const hdr = wo.addRow(['Produit', 'Usage', 'Quantité à commander', 'Coût estimé livré ($)', 'Quantification PSN', 'Couverture']);
+    const hdr = wo.addRow(['Produit', 'Usage', 'Quantité commandable (ajustée au budget disponible)', 'Coût estimé livré ($)', `Quantité initiale PSN ${y} (prévue pour l'USG)`, '% du PSN couvert par le budget']);
     hdr.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
     for (const l of yr.lines) {
       const hasNeed = l.need > 0;
@@ -145,7 +145,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]} — Méthode : ${method}`]);
     ws.mergeCells(title.number, 1, title.number, COLS);
     title.getCell(1).font = { ...FONT, bold: true };
-    writeHeader(ws, ['Intrant', 'Quantité', 'Total EXW', 'Fret', 'Total Landed', 'Quantification (besoin)', 'Couverture']);
+    writeHeader(ws, ['Intrant', 'Quantité commandable', 'Total EXW', 'Fret', 'Total Landed', 'Quantité initiale PSN (USG)', '% du PSN couvert']);
     for (const cat of CATEGORIES) {
       const lines = yr.lines.filter((l) => l.category === cat);
       if (!lines.length) continue;
