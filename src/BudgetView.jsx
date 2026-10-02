@@ -45,9 +45,17 @@ export default function BudgetView({ data, sim, today, updateData, setBudget, se
                   </td>
                   <td className="px-2 py-1.5 text-right"><NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget MOU FY${y}`} className="w-28" /></td>
                   <td className="px-2 py-1.5 text-right">
-                    {y === '2026'
-                      ? <span className="text-[10px] text-chem-gray2" title="Exercice clos : seuls les accruals sont déduits ; la réserve non engagée fait partie du solde">—</span>
-                      : <NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel={`Réserve assistance FY${y}`} className="w-28" />}
+                    {y === '2026' ? (
+                      <div className="inline-flex flex-col items-end gap-0.5">
+                        <label className="flex items-center gap-1 text-[9px] text-chem-gray2">prévue
+                          <NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel="Réserve assistance prévue FY2026" className="w-28" />
+                        </label>
+                        <label className="flex items-center gap-1 text-[9px] text-chem-gray2">dépensée
+                          <NumInput value={data.fy26AssistanceSpent} onChange={(v) => updateData((d) => ({ ...d, fy26AssistanceSpent: Math.max(0, v) }))} ariaLabel="Assistance dépensée FY2026" className="w-28" />
+                        </label>
+                        {yr.assistanceUnspent > 0.5 && <span className="text-[9px] text-chem-gray2">non dépensé : {fmtUsd(yr.assistanceUnspent, 0)}</span>}
+                      </div>
+                    ) : <NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel={`Réserve assistance FY${y}`} className="w-28" />}
                   </td>
                   <td className="px-2 py-1.5 text-right">
                     <NumInput value={data.yearAccruals[y]} onChange={(v) => setAccruals(y, v)} ariaLabel={`Accruals FY${y}`} className="w-28" />
@@ -90,7 +98,7 @@ export default function BudgetView({ data, sim, today, updateData, setBudget, se
         <Info w={12} className="mt-0.5 text-chem-darkblue" />
         <span>
           <strong>Budget produits</strong> = budget MOU + report reçu − réserve d’assistance − accruals.
-          {' '}<strong>Solde</strong> d’une année : pour FY2026 (clos), budget − accruals (la réserve non engagée fait partie du solde) ;
+          {' '}<strong>Solde</strong> d’une année : pour FY2026 (clos), budget − accruals − assistance dépensée (la part non dépensée de la réserve fait donc partie du solde) ;
           pour les années suivantes, la part du budget produits non utilisée dans les scénarios.
           {' '}Le solde est reporté sur l’<strong>année suivante</strong>, <strong>lissé</strong> à parts égales sur toutes les années suivantes du MOU, ou non reporté.
         </span>

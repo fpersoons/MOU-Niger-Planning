@@ -37,7 +37,7 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
               </tr>
             </thead>
             <tbody>
-              {COMMODITIES.map((c) => {
+              {COMMODITIES.filter((c) => data.includeMilda || !c.isMilda).map((c) => {
                 const p = data.commodities[c.id];
                 const fr = (mode) => {
                   const r = freightRate(p, mode);
@@ -65,6 +65,10 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
             </tbody>
           </table>
         </div>
+        <label className="mt-2 flex items-center gap-1.5 text-[10px] text-chem-gray2 cursor-pointer">
+          <input type="checkbox" checked={!!data.includeMilda} onChange={(e) => updateData((d) => ({ ...d, includeMilda: e.target.checked }))} className="accent-chem-darkblue w-3.5 h-3.5" />
+          Inclure les moustiquaires (MILDA) — non prévues dans le MOU ; si cochée, elles se saisissent dans les scénarios (bateau uniquement)
+        </label>
       </Section>
 
       {/* ─── PSN 2027-2031 ─── */}
@@ -112,7 +116,7 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
             </tfoot>
           </table>
         </div>
-        <p className="mt-2 text-[10px] text-chem-gray2">Le MOU couvre FY2027-FY2030 : l’année 2031 du PSN est indiquée pour information. Les moustiquaires (MILDA) se saisissent directement dans les scénarios (bateau uniquement).</p>
+        <p className="mt-2 text-[10px] text-chem-gray2">Le MOU couvre FY2027-FY2030 : l’année 2031 du PSN est indiquée pour information. </p>
       </Section>
 
     </div>

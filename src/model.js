@@ -119,7 +119,9 @@ export const accrualsTotal = (accruals) =>
 
 // Réserve d'assistance (assistance technique, entreposage, distribution) déduite
 // du budget total de chaque exercice. 0 par défaut (budgets du cahier des charges).
-export const DEFAULT_RESERVES = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
+// FY2026 : 1,8 M$ prévus pour l'assistance (fichier MOU 27, ligne « Supply Chain Management
+// and Warehouse and distribution ») ; années suivantes à saisir.
+export const DEFAULT_RESERVES = { 2026: 1800000, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
 
 // Méthode de calcul des quantités des intrants réguliers en FY27-FY30 :
 //  quantif — tout le budget réparti selon le split PSN (base EXW) : quantités maximales ;
@@ -159,6 +161,11 @@ export const defaultScenarioData = () => ({
   fy26Spending: 'unspent',
   yearAccruals: { ...DEFAULT_YEAR_ACCRUALS },
   carryRules: { ...DEFAULT_CARRY_RULES },
+  // Assistance FY2026 réellement dépensée / engagée sur la réserve prévue ; le reste
+  // de la réserve fait partie du solde FY2026.
+  fy26AssistanceSpent: 0,
+  // Moustiquaires (MILDA) : non prévues dans le MOU, masquées et exclues des calculs.
+  includeMilda: false,
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
   quantification: emptyRegular(PSN_YEARS),  // quantités financées par l'USG dans le PSN 2027-2031
   regularQtys: emptyRegular(),     // quantités saisies (méthode « manual »), FY27-FY30
@@ -234,6 +241,11 @@ export const normalizeScenarioData = (d = {}) => {
     // (quantités FY26 dépensées, report lissé ÷ 4) pour ne pas changer leurs résultats.
     fy26Spending: FY26_SPENDING.includes(d.fy26Spending) ? d.fy26Spending : 'planned',
     ...normalizeCarry(d, def),
+    // Format actuel uniquement : dans les anciens formats, l'assistance engagée est
+    // déjà comptée dans les accruals FY2026 (voir normalizeCarry).
+    fy26AssistanceSpent: d.yearAccruals ? num(d.fy26AssistanceSpent) : 0,
+    // Anciens scénarios avec des MILDA saisies : on les garde visibles.
+    includeMilda: d.includeMilda ?? YEARS.some((y) => MILDA.some((m) => num(d.manualQtys?.[y]?.[m.id]) > 0)),
     manualQtys: nested('manualQtys', YEARS),
     quantification: nested('quantification', PSN_YEARS),
     regularQtys: nested('regularQtys', FUTURE_YEARS),
@@ -318,7 +330,7 @@ export const simulate = (data) => {
   const p = (id) => commodities[id] || {};
   const rateFor = (id, mode) => freightRate(p(id), mode);
   const mildaLines = (y) =>
-    logistics[y] === 'sea'
+    data.includeMilda && logistics[y] === 'sea'
       ? MILDA.map((m) => line(m, floorQty(num(manualQtys?.[y]?.[m.id])), num(p(m.id).price), freightRate(p(m.id), 'sea')))
       : [];
 
@@ -343,12 +355,15 @@ export const simulate = (data) => {
   const milda26 = fy26Unspent ? [] : mildaLines('2026');
   const base26 = num(budgets['2026']);
   const accruals26 = num(yearAccruals['2026']);
-  const available26 = base26 - accruals26;
+  const reserve26 = num(reserves['2026']);
+  const assistanceSpent26 = num(data.fy26AssistanceSpent);
+  const available26 = base26 - accruals26 - assistanceSpent26;
   const total26 = sum(regular26, 'landed') + sum(milda26, 'landed');
   const surplus = available26 - total26;
   const result = {
     2026: {
-      year: '2026', mode: mode26, method: 'fy26', unspent: fy26Unspent, base: base26, reserve: 0, accruals: accruals26, bonus: 0,
+      year: '2026', mode: mode26, method: 'fy26', unspent: fy26Unspent, base: base26, reserve: reserve26, accruals: accruals26, bonus: 0,
+      assistanceSpent: assistanceSpent26, assistanceUnspent: reserve26 - assistanceSpent26,
       available: available26, assistance: 0, lines: [...regular26, ...milda26], mildaCost: sum(milda26, 'landed'),
       totalExw: sum(regular26, 'exw') + sum(milda26, 'exw'), totalFreight: sum(regular26, 'freight') + sum(milda26, 'freight'),
       total: total26, balance: surplus, carryRule: carryRules['2026'] || 'none', carryOut: distribute('2026', surplus),

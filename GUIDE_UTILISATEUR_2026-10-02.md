@@ -14,14 +14,14 @@ septembre) :
 | Colonne | Contenu |
 | --- | --- |
 | Budget MOU | budget disponible dans le cadre du MOU |
-| Réserve assistance | assistance technique, entreposage, distribution (sans objet pour FY2026, clos) |
+| Réserve assistance | assistance technique, entreposage, distribution ; pour FY2026 : montant **prévu** et montant **dépensé** |
 | Accruals | montants engagés (pour FY2026 : au 30/09/2026) |
 | Report reçu | soldes reportés depuis les années précédentes (calculé) |
 | = Budget produits | budget MOU + report reçu − réserve − accruals (calculé) |
 | Report du solde | *Année suivante*, *Lissé sur les années suivantes* ou *Aucun report* |
 
-Le **solde** d'une année est, pour **FY2026** (clos), budget − accruals : la réserve
-d'assistance non engagée en fait partie. Pour les années suivantes, c'est la part du
+Le **solde** d'une année est, pour **FY2026** (clos), budget − accruals − assistance
+dépensée : la part non dépensée de la réserve d'assistance en fait donc partie. Pour les années suivantes, c'est la part du
 budget produits non utilisée dans les scénarios. Il est reporté selon le choix de la
 dernière colonne : en totalité sur l'année suivante, ou à parts égales sur toutes les
 années suivantes du MOU.
@@ -37,6 +37,8 @@ années suivantes du MOU.
 - **Quantités financées par l'USG — PSN 2027-2031** : saisissez les quantités par
   intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
   l'année) se calcule automatiquement ; 2031 est hors MOU (pour information).
+- Les **moustiquaires (MILDA)**, non prévues dans le MOU, sont masquées ; la case
+  « Inclure les moustiquaires » les réaffiche si besoin.
 
 ## 3. Scénarios
 
@@ -50,8 +52,7 @@ Pour chaque année FY2027-FY2030 :
   est retenu par défaut pour respecter le plan d'approvisionnement ; l'équipe
   choisit ensuite selon les dates du plan.
 - Par produit : split PSN, **quantité à commander** (en unités d'achat), coût livré,
-  quantité PSN et **couverture**. Les moustiquaires se saisissent directement
-  (années en bateau).
+  quantité PSN et **couverture**.
 - **Copier pour un e-mail**, **synthèse FY2027-FY2030** et **Exporter en Excel**.
 
 ## Scénarios enregistrés
@@ -59,5 +60,6 @@ Pour chaque année FY2027-FY2030 :
 La barre sous l'en-tête permet de choisir le scénario actif, de le renommer, d'en
 créer un nouveau, de le **dupliquer** (pour comparer deux hypothèses, par exemple
 avion et bateau) ou de le supprimer. **Importer Excel** crée un scénario à partir
-d'un fichier exporté par l'application ; **JSON** sauvegarde ou recharge tous les
-scénarios (pour changer d'ordinateur).
+d'un fichier Excel exporté par l'application. **Télécharger le scénario** enregistre le
+scénario actif dans un fichier ; **Charger un scénario** le recharge (par exemple sur
+un autre ordinateur).

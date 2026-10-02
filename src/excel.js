@@ -154,7 +154,9 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     }
     writeTotal(ws, 'Budget de base', yr.base);
     if (yr.bonus) writeTotal(ws, 'Report reçu (soldes des années précédentes)', yr.bonus);
-    if (yr.reserve) writeTotal(ws, 'Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
+    if (y === '2026') {
+      if (yr.reserve) writeTotal(ws, `Réserve assistance prévue : ${Math.round(yr.reserve).toLocaleString('fr-FR')} $ — dépensée / engagée`, -yr.assistanceSpent);
+    } else if (yr.reserve) writeTotal(ws, 'Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
     if (yr.accruals) writeTotal(ws, y === '2026' ? 'Accruals au 30/09/2026' : 'Accruals', -yr.accruals);
     writeTotal(ws, 'Budget disponible pour les intrants', yr.available, { bold: true });
     if (yr.needLanded) writeTotal(ws, 'Coût landed de la quantification (pour mémoire)', yr.needLanded);
@@ -200,6 +202,8 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   const acc = [];
   acc.push(
     ['Options — FY2026 dépensé', data.fy26Spending === 'unspent' ? 'Non' : 'Oui'],
+    ['Options — Assistance FY2026 dépensée ($)', data.fy26AssistanceSpent, MONEY],
+    ['Options — Inclure les MILDA', data.includeMilda ? 'Oui' : 'Non'],
   );
   for (const [label, value, fmt] of acc) {
     const row = wp.addRow([label, value]);
@@ -241,7 +245,7 @@ export const parseWorkbookRows = (sheets, base) => {
   const data = normalizeScenarioData(base);
   let found = 0;
   let legacyAcc = null; // anciens formats d'accruals FY2026
-  let legacyAssist = 0;
+  let assistValue = null; // assistance FY2026 dépensée (nouveau format) ou engagée (ancien format)
   let newAcc = false;
   for (const rows of sheets) {
     for (let i = 0; i < rows.length; i++) {
@@ -320,7 +324,8 @@ export const parseWorkbookRows = (sheets, base) => {
       if (first.startsWith('options')) {
         const v = norm(header[1]);
         // anciens fichiers : assistance engagée (ajoutée aux accruals FY2026) et report du surplus FY2026
-        if (first.includes('assistance')) legacyAssist = parseVal(header[1]);
+        if (first.includes('milda')) data.includeMilda = v === 'oui';
+        else if (first.includes('assistance')) assistValue = parseVal(header[1]);
         else if (first.includes('report')) data.carryRules['2026'] = v.includes('lisse') || v.endsWith('4') ? 'smooth' : 'next';
         else if (first.includes('depense')) data.fy26Spending = v === 'non' ? 'unspent' : 'planned';
       }
@@ -337,7 +342,8 @@ export const parseWorkbookRows = (sheets, base) => {
       }
     }
   }
-  if (!newAcc && legacyAcc !== null) data.yearAccruals['2026'] = legacyAcc + legacyAssist;
+  if (newAcc) { if (assistValue !== null) data.fy26AssistanceSpent = assistValue; }
+  else if (legacyAcc !== null) data.yearAccruals['2026'] = legacyAcc + (assistValue || 0);
   return { data, found };
 };
 

@@ -80,6 +80,7 @@ test('accruals et réserve des années suivantes déduits du budget produits', (
 
 test('FY27-30 : split PSN — budget saturé sans dépassement, split sur base EXW', () => {
   const d = noLaterCarry(withPsn(defaultScenarioData()), 'smooth');
+  d.includeMilda = true;
   d.manualQtys['2028'][11] = 100000;
   const sim = simulate(d);
   for (const y of ['2027', '2028', '2029', '2030']) {
@@ -159,6 +160,8 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.carryRules['2026'] = 'smooth';
   d.carryRules['2028'] = 'none';
   d.methods['2030'] = 'manual';
+  d.fy26AssistanceSpent = 1200000;
+  d.includeMilda = true;
   d.quantification['2028'][3] = 150000;
   d.quantification['2031'][4] = 777;
   d.regularQtys['2030'][9] = 777;
@@ -178,6 +181,8 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.equal(data.reserves['2028'], 1600000);
   assert.deepEqual(data.yearAccruals, d.yearAccruals);
   assert.deepEqual(data.carryRules, d.carryRules);
+  assert.equal(data.fy26AssistanceSpent, 1200000);
+  assert.equal(data.includeMilda, true);
   assert.deepEqual(data.methods, d.methods);
   assert.equal(data.manualQtys['2027'][12], 4321);
   assert.equal(data.quantification['2028'][3], 150000);
@@ -219,4 +224,24 @@ test('coûts livrés : taux implicite et split PSN', () => {
   close(d.commodities[4].price, 10.747648 / 1.5, 1e-4);
   close(d.commodities[4].landedAir, d.commodities[4].price * 2, 1e-3);
   close(d.commodities[9].landedSea, 1.622334);
+});
+
+test('FY2026 : réserve prévue, assistance dépensée ; la part non dépensée reste dans le solde', () => {
+  const d = noLaterCarry(defaultScenarioData());
+  assert.equal(d.reserves['2026'], 1800000);
+  d.fy26AssistanceSpent = 1200000;
+  const sim = simulate(d);
+  close(sim.surplus, 13321800 - 1106690 - 1200000);
+  close(sim.years['2026'].assistanceUnspent, 600000);
+});
+
+test('MILDA masquées par défaut : ignorées dans les calculs, sauf si incluses', () => {
+  const d = defaultScenarioData();
+  assert.equal(d.includeMilda, false);
+  d.manualQtys['2028'][11] = 1000;
+  assert.equal(simulate(d).years['2028'].mildaCost, 0);
+  d.includeMilda = true;
+  assert.ok(simulate(d).years['2028'].mildaCost > 0);
+  // anciens scénarios avec des MILDA saisies : visibles
+  assert.equal(normalizeScenarioData({ manualQtys: { 2028: { 11: 500 } } }).includeMilda, true);
 });

@@ -3,7 +3,8 @@
 // Trois vues : 1. Budget (paramètres budgétaires), 2. Paramètres logistiques
 // (coûts par intrant, PSN 2027-2031), 3. Scénarios (quantités à commander).
 // Données : JSON dans le navigateur (localStorage), plusieurs scénarios enregistrés,
-// sauvegarde automatique ; export Excel par scénario ; import/export JSON.
+// sauvegarde automatique ; export Excel par scénario ; téléchargement / chargement d'un
+// scénario (fichier .json, pour le transférer sur un autre poste).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -187,8 +188,10 @@ export default function App() {
   };
 
   const handleExportJson = () => {
-    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...store }, null, 2)], { type: 'application/json' });
-    downloadBlob(blob, `planificateur-paludisme-scenarios_${new Date().toISOString().slice(0, 10)}.json`);
+    // Scénario actif uniquement (le chargement accepte aussi les fichiers à plusieurs scénarios).
+    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), activeId: scenario.id, scenarios: [scenario] }, null, 2)], { type: 'application/json' });
+    const slug = scenario.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'scenario';
+    downloadBlob(blob, `MOU-Niger_scenario_${slug}_${new Date().toISOString().slice(0, 10)}.json`);
   };
 
   const handleImportJson = async (e) => {
@@ -206,9 +209,9 @@ export default function App() {
         return { id: uid(), name, updatedAt: x.updatedAt || new Date().toISOString(), data: normalizeScenarioData(x.data) };
       });
       setStore((s) => ({ activeId: added[0].id, scenarios: [...s.scenarios, ...added] }));
-      setNotice({ kind: 'ok', text: `${added.length} scénario(s) importé(s) depuis le fichier JSON.` });
+      setNotice({ kind: 'ok', text: added.length > 1 ? `${added.length} scénarios chargés.` : `Scénario « ${added[0].name} » chargé.` });
     } catch (err) {
-      setNotice({ kind: 'error', text: `Fichier JSON invalide : ${err.message}` });
+      setNotice({ kind: 'error', text: `Ce fichier n’est pas un scénario téléchargé depuis l’application (${err instanceof SyntaxError ? 'fichier illisible' : err.message}).` });
     } finally {
       if (jsonRef.current) jsonRef.current.value = '';
     }
@@ -271,9 +274,9 @@ export default function App() {
               <span className="w-px h-4 bg-chem-gray1-20 mx-1" aria-hidden="true" />
               <button type="button" onClick={() => fileRef.current?.click()} className={barBtn} title="Importer un fichier Excel (crée un nouveau scénario)"><Upload w={11} /> Importer Excel</button>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-              <button type="button" onClick={() => jsonRef.current?.click()} className={barBtn} title="Importer des scénarios (fichier JSON)"><Upload w={11} /> JSON</button>
+              <button type="button" onClick={() => jsonRef.current?.click()} className={barBtn} title="Charger un scénario téléchargé précédemment (par exemple depuis un autre ordinateur)"><Upload w={11} /> Charger un scénario</button>
               <input ref={jsonRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImportJson} />
-              <button type="button" onClick={handleExportJson} className={barBtn} title="Sauvegarder tous les scénarios (fichier JSON)"><Download w={11} /> JSON</button>
+              <button type="button" onClick={handleExportJson} className={barBtn} title="Télécharger le scénario actif dans un fichier, pour le sauvegarder ou le transférer"><Download w={11} /> Télécharger le scénario</button>
             </span>
           </div>
         </header>
