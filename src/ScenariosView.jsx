@@ -4,7 +4,7 @@
 // Transport (avion / bateau + route) et quantités à commander.
 
 import { useState } from 'react';
-import { CARRY_LABEL, FUTURE_YEARS, REGULAR, num, psnSplit } from './model.js';
+import { CARRY_LABEL, FUTURE_YEARS, PSN_LABEL, REGULAR, num, psnSplit } from './model.js';
 import { fiscalYear } from './logistics.js';
 import { AlertTriangle, Calculator, Clipboard, FileSpreadsheet, Info, ListChecks, Plane, RotateCcw, Truck } from './icons.jsx';
 import { MODE_PLAIN, NEG, NumInput, POS, fmtNum, fmtUsd, role } from './ui.jsx';
@@ -88,8 +88,8 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
 
       {!hasPsn && (
         <p className={`px-3 py-1.5 text-[11px] ${NEG.text} ${NEG.bg} border-b border-chem-gray1-10 flex flex-wrap items-center gap-1.5`}>
-          <AlertTriangle w={12} /> Pas de quantités PSN pour {yr.year} : le split ne peut pas être calculé.
-          <button type="button" onClick={goToLogistics} className="font-semibold underline">Saisir le PSN (paramètres logistiques)</button>
+          <AlertTriangle w={12} /> Pas de quantités prévues pour l’USG dans la quantification du PSN 2027-2031 pour {yr.year} : le split ne peut pas être calculé.
+          <button type="button" onClick={goToLogistics} className="font-semibold underline">Saisir les quantités USG du PSN (paramètres logistiques)</button>
         </p>
       )}
 
@@ -102,7 +102,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
       )}
 
       <p className="px-3 py-1.5 text-[10px] text-chem-darkblue bg-chem-blue-10 border-b border-chem-blue-20">
-        Les <strong>quantités commandables</strong> sont les quantités initialement prévues pour l’USG, <strong>ajustées pour rester dans le budget disponible</strong> de FY{yr.year}.
+        Les <strong>quantités commandables</strong> sont les quantités initialement prévues d’être couvertes par le Gouvernement américain (USG) dans la quantification du Plan stratégique 2027-2031 (PSN), <strong>ajustées pour rester dans le budget disponible</strong> de FY{yr.year}.
         L’écart indique la réduction (ou l’augmentation) par rapport à ce qui était prévu : −4 % signifie 4 % de moins que prévu.
       </p>
       <div className="overflow-x-auto">
@@ -113,7 +113,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
               <th className="px-2 py-1.5 text-right">Split PSN</th>
               <th className="px-2 py-1.5 text-right">Quantité commandable<span className="block normal-case font-normal">ajustée au budget disponible</span></th>
               <th className="px-2 py-1.5 text-right">Coût livré</th>
-              <th className="px-2 py-1.5 text-right">Quantité initialement prévue<span className="block normal-case font-normal">pour l’USG ({yr.year})</span></th>
+              <th className="px-2 py-1.5 text-right" title={PSN_LABEL}>Quantité initialement prévue pour l’USG<span className="block normal-case font-normal">quantification PSN 2027-2031 ({yr.year})</span></th>
               <th className="px-2 py-1.5 text-right">Écart<span className="block normal-case font-normal">vs quantité prévue</span></th>
             </tr>
           </thead>

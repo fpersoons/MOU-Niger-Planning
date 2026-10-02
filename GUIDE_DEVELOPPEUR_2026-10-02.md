@@ -79,9 +79,18 @@ livré avion = EXW × (1 + % air). `referenceCosts()` alimente le bouton
 
 ## Excel
 
-- Export : feuille *Quantités et coûts* (par année : quantité commandable, prix unitaire
-  livré, total livré en formule, quantité prévue, écart ; total commandé, budget, reste)
-  et feuille *Paramètres* (hypothèses).
+- Export, palette CHEMONICS de l'application (en-têtes gris clair, bandeaux bleu foncé,
+  totaux sur fond bleu très clair, cellules modifiables bleu clair, écarts et restes en
+  vert / aubergine par mise en forme conditionnelle) :
+  - feuille *Paramètres* : hypothèses modifiables (listes déroulantes pour le mode, la
+    méthode et la règle de report), fret % et split PSN calculés ;
+  - feuille *Quantités et coûts* : **tout en formules** liées à *Paramètres*. Quantité
+    automatique = `ARRONDI.INF(budget produits restant × qté PSN / SOMMEPROD(qté PSN ;
+    prix livré), 0)` (équivalent exact de `allocate`), ou quantité manuelle selon la
+    méthode ; report reçu = soldes des années précédentes selon leur règle.
+  - Les résultats calculés par l'application sont écrits en cache ; `fullCalcOnLoad`
+    force le recalcul à l'ouverture. Formules vérifiées avec HyperFormula (résultats
+    identiques à `simulate`, y compris après modification des paramètres).
 - Pas d'import Excel dans l'interface : les scénarios se transfèrent par « Télécharger / Charger un scénario » (fichier .json). `parseWorkbookRows` relit la feuille *Paramètres* (test d'aller-retour).
 
 ## Écarts au cahier des charges

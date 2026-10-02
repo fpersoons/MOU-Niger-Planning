@@ -160,7 +160,6 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.carryRules['2026'] = 'smooth';
   d.carryRules['2028'] = 'none';
   d.methods['2030'] = 'manual';
-  d.fy26AssistanceSpent = 1200000;
   d.includeMilda = true;
   d.quantification['2028'][3] = 150000;
   d.quantification['2031'][4] = 777;
@@ -181,7 +180,6 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.equal(data.reserves['2028'], 1600000);
   assert.deepEqual(data.yearAccruals, d.yearAccruals);
   assert.deepEqual(data.carryRules, d.carryRules);
-  assert.equal(data.fy26AssistanceSpent, 1200000);
   assert.equal(data.includeMilda, true);
   assert.deepEqual(data.methods, d.methods);
   assert.equal(data.manualQtys['2027'][12], 4321);
@@ -226,13 +224,13 @@ test('coûts livrés : taux implicite et split PSN', () => {
   close(d.commodities[9].landedSea, 1.622334);
 });
 
-test('FY2026 : réserve prévue, assistance dépensée ; la part non dépensée reste dans le solde', () => {
+test('FY2026 : solde = budget − accruals ; la réserve prévue n’est pas déduite ; ancien champ « assistance dépensée » repris dans les accruals', () => {
   const d = noLaterCarry(defaultScenarioData());
   assert.equal(d.reserves['2026'], 1800000);
-  d.fy26AssistanceSpent = 1200000;
-  const sim = simulate(d);
-  close(sim.surplus, 13321800 - 1106690 - 1200000);
-  close(sim.years['2026'].assistanceUnspent, 600000);
+  close(simulate(d).surplus, 13321800 - 1106690);
+  const old = normalizeScenarioData({ ...defaultScenarioData(), fy26AssistanceSpent: 1200000 });
+  close(old.yearAccruals['2026'], 1106690 + 1200000);
+  assert.equal('fy26AssistanceSpent' in old, false);
 });
 
 test('MILDA masquées par défaut : ignorées dans les calculs, sauf si incluses', () => {
@@ -244,4 +242,23 @@ test('MILDA masquées par défaut : ignorées dans les calculs, sauf si incluses
   assert.ok(simulate(d).years['2028'].mildaCost > 0);
   // anciens scénarios avec des MILDA saisies : visibles
   assert.equal(normalizeScenarioData({ manualQtys: { 2028: { 11: 500 } } }).includeMilda, true);
+});
+
+test('export Excel : calculs en formules liées à « Paramètres », couleurs de l’application', async () => {
+  const d = withPsn(defaultScenarioData());
+  const wb = await buildWorkbook({ name: 'Formules', data: d });
+  assert.equal(wb.calcProperties.fullCalcOnLoad, true);
+  const ws = wb.getWorksheet('Quantités et coûts');
+  let lines = 0;
+  ws.eachRow((row) => {
+    if (!REGULAR.some((c) => String(row.getCell(1).value).endsWith(`(${c.name})`))) return;
+    lines++;
+    for (const col of [3, 4, 5, 6, 7]) assert.ok(row.getCell(col).formula, `ligne ${row.number}, colonne ${col} : formule attendue`);
+    assert.match(row.getCell(3).formula, /Paramètres/);
+  });
+  assert.equal(lines, REGULAR.length * 4);
+  // Budget, report, réserve, accruals, budget disponible et reste : formules aussi.
+  ws.eachRow((row) => { if (row.getCell(5).value !== null && typeof row.getCell(5).value === 'number') assert.fail(`valeur figée ligne ${row.number}`); });
+  const banner = ws.getRow(6).getCell(1);
+  assert.equal(banner.fill.fgColor.argb, 'FF005D83');
 });
