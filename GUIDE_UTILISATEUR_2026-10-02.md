@@ -82,3 +82,15 @@ l'en-tête permet de :
 - **Charger un scénario** : reprendre un fichier téléchargé (il remplace les valeurs
   actuelles). Pour comparer deux hypothèses, téléchargez la première, modifiez, puis
   rechargez-la si besoin.
+
+## Adresse, autre ordinateur, nouvelle version
+
+- Utilisez toujours l'adresse <https://www.chemlink.app/MOU-Niger-Planning/> (onglet
+  **Niger** du portail ChemLink). Le scénario est enregistré **dans ce navigateur, à
+  cette adresse** : un autre navigateur, un autre ordinateur ou une autre adresse
+  partent des valeurs par défaut.
+- Pour changer d'ordinateur ou de navigateur : **Télécharger le scénario** sur le
+  premier poste, puis **Charger un scénario** sur le second.
+- Une nouvelle version de l'application ne modifie pas votre scénario. Pour adopter de
+  nouvelles valeurs par défaut, téléchargez d'abord votre scénario si vous voulez le
+  garder, puis cliquez sur **Réinitialiser**.
