@@ -79,10 +79,9 @@ livré avion = EXW × (1 + % air). `referenceCosts()` alimente le bouton
 
 ## Excel
 
-- Export : feuille *Quantités à commander* (langage courant, unités d'achat, à
-  transmettre), feuille *Simulation* (Arial 11, en-têtes `#000066` blanc gras centré,
-  catégories `#F1F5F9` gras italique fusionnées A-E, `"$"#,##0.00`, `#,##0`,
-  solde vert/rouge) et feuille *Paramètres* (pourcentages écrits en fractions Excel).
+- Export : feuille *Quantités et coûts* (par année : quantité commandable, prix unitaire
+  livré, total livré en formule, quantité prévue, écart ; total commandé, budget, reste)
+  et feuille *Paramètres* (hypothèses).
 - Pas d'import Excel dans l'interface : les scénarios se transfèrent par « Télécharger / Charger un scénario » (fichier .json). `parseWorkbookRows` relit la feuille *Paramètres* (test d'aller-retour).
 
 ## Écarts au cahier des charges

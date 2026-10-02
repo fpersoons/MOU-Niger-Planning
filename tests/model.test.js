@@ -168,7 +168,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   const wb = await buildWorkbook({ name: 'Test', data: d });
   const buf = await wb.xlsx.writeBuffer();
   const x = XLSX.read(buf, { type: 'buffer' });
-  assert.deepEqual(x.SheetNames, ['Quantités à commander', 'Simulation', 'Paramètres']);
+  assert.deepEqual(x.SheetNames, ['Quantités et coûts', 'Paramètres']);
   const rows = XLSX.utils.sheet_to_json(x.Sheets['Paramètres'], { header: 1, raw: true, defval: null });
   const { data, found } = parseWorkbookRows([rows], zeroedScenarioData(defaultScenarioData()));
   assert.equal(found, 13);

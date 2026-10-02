@@ -223,7 +223,7 @@ function Summary({ sim, busy, onExport }) {
           </tfoot>
         </table>
       </div>
-      <p className="mt-2 text-[10px] text-chem-gray2 flex items-center gap-1"><ListChecks w={11} /> L’export Excel contient une feuille « Quantités à commander » prête à transmettre et le détail des calculs.</p>
+      <p className="mt-2 text-[10px] text-chem-gray2 flex items-center gap-1"><ListChecks w={11} /> L’export Excel (en-tête) donne, par année, les quantités commandables, les prix unitaires livrés et les totaux.</p>
     </Section>
   );
 }

@@ -55,7 +55,11 @@ Pour chaque année FY2027-FY2030 :
   la quantité initialement prévue pour l'USG, **ajustée pour rester dans le budget
   disponible** —, coût livré, **quantité initialement prévue** et **écart** par rapport
   à cette quantité (−4 % = 4 % de moins que prévu).
-- **Copier pour un e-mail**, **synthèse FY2027-FY2030** et **Exporter en Excel**.
+- **Copier pour un e-mail** et **synthèse FY2027-FY2030**.
+- **Exporter Excel** (en-tête) : une feuille « Quantités et coûts » qui donne, par
+  année, la quantité commandable, le prix unitaire livré et le total livré de chaque
+  produit (formules modifiables dans Excel), le total commandé, le budget et le reste ;
+  une feuille « Paramètres » reprend les hypothèses.
 
 ## Scénarios enregistrés
 

@@ -1,9 +1,10 @@
-// ─── Export / import Excel ──────────────────────────────────────────────────
-// Export : ExcelJS (vrai .xlsx, ouverture sans avertissement sous Excel).
-// Import : SheetJS. Les deux bibliothèques sont chargées à la demande.
+// ─── Export Excel ────────────────────────────────────────────────────────────
+// ExcelJS (vrai .xlsx, ouverture sans avertissement sous Excel), chargé à la demande.
+// Feuille « Quantités et coûts » (quantités, prix livrés, totaux) et feuille
+// « Paramètres » (hypothèses). parseWorkbookRows relit « Paramètres » (tests).
 
 import {
-  CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
+  COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
   CARRY_LABEL, CARRY_RULES, CARRY_YEARS, PSN_YEARS, normalizeScenarioData, parseVal, simulate,
 } from './model.js';
 import { fmtDay } from './logistics.js';
@@ -19,7 +20,6 @@ const GAP = '+0%;-0%;0%'; // écart signé par rapport à la quantité prévue
 const PCT = '0.00%'; // valeurs écrites en fraction (4,41 % -> 0.0441), relues par parseVal
 const pct = (v) => (v === null || v === undefined ? null : (Number(v) || 0) / 100);
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000066' } };
-const CATEGORY_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 const GREEN = 'FF15803D';
 const RED = 'FFB91C1C';
 const MODE_LABEL = { air: 'Air', sea: 'Mer' };
@@ -35,53 +35,6 @@ export const exportFileName = (scenarioName, date = new Date()) => {
   return `GHSC-PSM_Budget_Prospective_${d}${s ? `_${s}` : ''}.xlsx`;
 };
 
-const styleRow = (row, from = 1, to = 5) => {
-  for (let c = from; c <= to; c++) row.getCell(c).font = { ...FONT, ...(row.getCell(c).font || {}) };
-};
-
-const writeHeader = (ws, labels) => {
-  const row = ws.addRow(labels);
-  row.eachCell((cell) => {
-    cell.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = HEADER_FILL;
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  });
-  return row;
-};
-
-const COLS = 7; // Intrant, Quantité, EXW, Fret, Landed, Besoin, Couverture
-
-const writeCategory = (ws, label) => {
-  const row = ws.addRow([label]);
-  ws.mergeCells(row.number, 1, row.number, COLS);
-  const cell = row.getCell(1);
-  cell.font = { ...FONT, bold: true, italic: true };
-  cell.fill = CATEGORY_FILL;
-  return row;
-};
-
-const writeLine = (ws, l) => {
-  const hasNeed = l.need !== undefined && l.need > 0;
-  const row = ws.addRow([l.name, l.qty, l.exw, l.freight, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage - 1 : null]);
-  row.getCell(2).numFmt = QTY;
-  [3, 4, 5].forEach((c) => (row.getCell(c).numFmt = MONEY));
-  row.getCell(6).numFmt = QTY;
-  row.getCell(7).numFmt = GAP;
-  styleRow(row, 1, COLS);
-  return row;
-};
-
-const writeTotal = (ws, label, value, { bold = false, sign = false } = {}) => {
-  const row = ws.addRow([label, null, null, null, value]);
-  ws.mergeCells(row.number, 1, row.number, 4);
-  row.getCell(1).font = { ...FONT, bold };
-  row.getCell(1).alignment = { horizontal: 'right' };
-  const v = row.getCell(5);
-  v.numFmt = MONEY;
-  v.font = { ...FONT, bold, ...(sign ? { color: { argb: value >= 0 ? GREEN : RED } } : {}) };
-  return row;
-};
-
 /** Construit le classeur ExcelJS d'un scénario. */
 export const buildWorkbook = async (scenario, today = new Date()) => {
   const ExcelJS = (await import('exceljs')).default;
@@ -91,83 +44,64 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   wb.creator = 'GHSC-PSM — Planificateur Intrants Paludisme';
   wb.created = new Date();
 
-  // ─── Feuille 0 : quantités à commander (langage courant, à transmettre) ───
-  const wo = wb.addWorksheet('Quantités à commander', { views: [{ showGridLines: false }] });
-  wo.columns = [{ width: 46 }, { width: 40 }, { width: 18 }, { width: 22 }, { width: 18 }, { width: 13 }];
-  const ot = wo.addRow(['MOU Niger — Quantités commandables FY2027-FY2030 (quantités initialement prévues pour l\'USG, ajustées au budget disponible)']);
+  // ─── Feuille 1 : quantités et coûts (à transmettre) ───
+  // Par année : quantité commandable, prix unitaire livré, total livré (formule),
+  // quantité initialement prévue pour l'USG et écart ; puis totaux et budget.
+  const wo = wb.addWorksheet('Quantités et coûts', { views: [{ showGridLines: false }] });
+  wo.columns = [{ width: 48 }, { width: 30 }, { width: 16 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 12 }];
+  const NC = 7;
+  const ot = wo.addRow(['MOU Niger — Quantités commandables et coûts livrés FY2027-FY2030']);
   ot.getCell(1).font = { ...FONT, bold: true };
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
-    `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accruals).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde ${Math.round(sim.surplus).toLocaleString('fr-FR')} $, report : ${lowerFirst(CARRY_LABEL[sim.years['2026'].carryRule])}.`,
+    'Quantités commandables = quantités initialement prévues pour l\'USG, ajustées pour rester dans le budget disponible. Montants en dollars américains, livrés au Niger (produit + transport).',
   ]) { const r = wo.addRow([txt]); r.getCell(1).font = FONT; }
   wo.addRow([]);
+  const totalRefs = [];
+  const moneyRow = (label, value, { bold = false, sign = false, formula } = {}) => {
+    const r = wo.addRow([label]);
+    wo.mergeCells(r.number, 1, r.number, 4);
+    r.getCell(1).font = { ...FONT, bold };
+    r.getCell(1).alignment = { horizontal: 'right' };
+    const c = r.getCell(5);
+    c.value = formula ? { formula, result: value } : value;
+    c.numFmt = MONEY;
+    c.font = { ...FONT, bold, ...(sign ? { color: { argb: value >= 0 ? GREEN : RED } } : {}) };
+    return r;
+  };
   for (const y of FUTURE_YEARS) {
     const yr = sim.years[y];
-    const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]}`]);
-    wo.mergeCells(title.number, 1, title.number, 6);
+    const title = wo.addRow([`FY${y} — Transport : ${MODE_PLAIN[yr.mode]} — Calcul : ${METHOD_PLAIN[yr.method]}`]);
+    wo.mergeCells(title.number, 1, title.number, NC);
     title.getCell(1).font = { ...FONT, bold: true };
-    const hdr = wo.addRow(['Produit', 'Usage', 'Quantité commandable (ajustée au budget disponible)', 'Coût estimé livré ($)', `Quantité initialement prévue pour l'USG (${y})`, 'Écart vs quantité prévue']);
+    const hdr = wo.addRow(['Produit', 'Unité d\'achat', 'Quantité commandable', 'Prix unitaire livré ($)', 'Total livré ($)', `Quantité initialement prévue pour l'USG (${y})`, 'Écart vs prévu']);
     hdr.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
-    for (const l of yr.lines) {
+    const first = wo.rowCount + 1;
+    const lines = yr.lines.filter((l) => l.qty > 0 || l.need > 0);
+    for (const l of lines) {
+      const unitPrice = l.price * (1 + l.rate / 100);
       const hasNeed = l.need > 0;
-      const r = wo.addRow([`${l.plain} (${l.name}) — ${l.unit}`, l.use, l.qty, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage - 1 : null]);
+      const r = wo.addRow([`${l.plain} (${l.name})`, l.unit, l.qty, unitPrice, null, hasNeed ? l.need : null, null]);
+      const n = r.number;
+      r.getCell(5).value = { formula: `C${n}*D${n}`, result: l.landed };
+      if (hasNeed) r.getCell(7).value = { formula: `C${n}/F${n}-1`, result: l.coverage - 1 };
       r.eachCell({ includeEmpty: true }, (c) => (c.font = FONT));
-      r.getCell(3).numFmt = QTY; r.getCell(4).numFmt = MONEY; r.getCell(5).numFmt = QTY; r.getCell(6).numFmt = GAP;
+      r.getCell(3).numFmt = QTY; r.getCell(4).numFmt = '"$"#,##0.0000'; r.getCell(5).numFmt = MONEY; r.getCell(6).numFmt = QTY; r.getCell(7).numFmt = GAP;
     }
-    for (const [label, value, sign] of [
-      ['Budget disponible pour les produits', yr.available],
-      ['Total estimé (produits + transport)', yr.total],
-      [yr.balance >= 0 ? 'Reste non utilisé' : 'Dépassement du budget', yr.balance, true],
-    ]) {
-      const r = wo.addRow([label, null, null, value]);
-      wo.mergeCells(r.number, 1, r.number, 3);
-      r.getCell(1).font = { ...FONT, bold: true };
-      r.getCell(1).alignment = { horizontal: 'right' };
-      r.getCell(4).numFmt = MONEY;
-      r.getCell(4).font = { ...FONT, bold: true, ...(sign ? { color: { argb: value >= 0 ? GREEN : RED } } : {}) };
-    }
+    const last = wo.rowCount;
+    const totalRow = moneyRow(`Total commandé FY${y}`, yr.total, { bold: true, formula: lines.length ? `SUM(E${first}:E${last})` : undefined });
+    totalRefs.push(`E${totalRow.number}`);
+    moneyRow('Budget MOU', yr.base);
+    if (yr.bonus) moneyRow('Report reçu des années précédentes', yr.bonus);
+    if (yr.reserve) moneyRow('Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
+    if (yr.accruals) moneyRow('Accruals', -yr.accruals);
+    const avail = moneyRow('Budget disponible pour les produits', yr.available, { bold: true });
+    moneyRow(yr.balance >= 0 ? 'Reste non utilisé' : 'Dépassement du budget', yr.balance, { bold: true, sign: true, formula: `E${avail.number}-E${totalRow.number}` });
     wo.addRow([]);
   }
+  moneyRow('Total commandé FY2027-FY2030', FUTURE_YEARS.reduce((t, y) => t + sim.years[y].total, 0), { bold: true, formula: totalRefs.join('+') });
 
-  // ─── Feuille 1 : simulation ───
-  const ws = wb.addWorksheet('Simulation', { views: [{ showGridLines: false }] });
-  ws.columns = [{ width: 44 }, { width: 16 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 18 }, { width: 13 }];
-  const t = ws.addRow(['Planificateur Budgétaire Intrants Paludisme FY26-FY30']);
-  t.getCell(1).font = { ...FONT, bold: true };
-  const s = ws.addRow([`Scénario : ${scenario.name}`]);
-  s.getCell(1).font = FONT;
-  const g = ws.addRow(['GHSC-PSM — MOU Niger']);
-  g.getCell(1).font = FONT;
-  ws.addRow([]);
-
-  for (const y of YEARS) {
-    const yr = sim.years[y];
-    const method = y === '2026' ? 'Quantités FY26 saisies' : `${METHOD_LABEL[yr.method]}`;
-    const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]} — Méthode : ${method}`]);
-    ws.mergeCells(title.number, 1, title.number, COLS);
-    title.getCell(1).font = { ...FONT, bold: true };
-    writeHeader(ws, ['Intrant', 'Quantité commandable', 'Total EXW', 'Fret', 'Total Landed', 'Quantité initialement prévue (USG)', 'Écart vs prévu']);
-    for (const cat of CATEGORIES) {
-      const lines = yr.lines.filter((l) => l.category === cat);
-      if (!lines.length) continue;
-      writeCategory(ws, cat);
-      lines.forEach((l) => writeLine(ws, l));
-    }
-    writeTotal(ws, 'Budget de base', yr.base);
-    if (yr.bonus) writeTotal(ws, 'Report reçu (soldes des années précédentes)', yr.bonus);
-    if (y === '2026') {
-      if (yr.reserve) writeTotal(ws, `Réserve assistance prévue : ${Math.round(yr.reserve).toLocaleString('fr-FR')} $ — dépensée / engagée`, -yr.assistanceSpent);
-    } else if (yr.reserve) writeTotal(ws, 'Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
-    if (yr.accruals) writeTotal(ws, y === '2026' ? 'Accruals au 30/09/2026' : 'Accruals', -yr.accruals);
-    writeTotal(ws, 'Budget disponible pour les intrants', yr.available, { bold: true });
-    if (yr.needLanded) writeTotal(ws, 'Coût landed de la quantification (pour mémoire)', yr.needLanded);
-    writeTotal(ws, 'Total dépenses', yr.total, { bold: true });
-    writeTotal(ws, 'Solde final (reste)', yr.balance, { bold: true, sign: true });
-    if (y !== '2030') writeTotal(ws, `Report du solde : ${lowerFirst(CARRY_LABEL[yr.carryRule])}`, yr.carryOut);
-    ws.addRow([]);
-  }
-
-  // ─── Feuille 2 : paramètres (relisible par l'import, Option B) ───
+  // ─── Feuille 2 : paramètres (hypothèses du scénario) ───
   const wp = wb.addWorksheet('Paramètres', { views: [{ showGridLines: false }] });
   wp.columns = [{ width: 44 }, { width: 34 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }];
   const h1 = wp.addRow(['Intrant', 'Catégorie', 'Prix EXW ($)', 'Coût livré bateau + route ($)', 'Coût livré avion ($)', 'Qté FY26']);
