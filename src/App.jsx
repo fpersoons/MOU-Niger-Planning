@@ -193,6 +193,7 @@ export default function App() {
   const setBudget = (year, value) => updateData((d) => ({ ...d, budgets: { ...d.budgets, [year]: value } }));
   const setReserve = (year, value) => updateData((d) => ({ ...d, reserves: { ...d.reserves, [year]: Math.max(0, value) } }));
   const setMethod = (year, method) => updateData((d) => ({ ...d, methods: { ...d.methods, [year]: method } }));
+  const setMaximize = (year, on) => updateData((d) => ({ ...d, maximize: { ...d.maximize, [year]: on } }));
   const setYearQty = (key, year, id, value) =>
     updateData((d) => ({ ...d, [key]: { ...d[key], [year]: { ...d[key][year], [id]: Math.max(0, Math.floor(value)) } } }));
   // Pré-remplit les quantités manuelles d'un exercice (source : quantification brute,
@@ -450,7 +451,7 @@ export default function App() {
             {/* Paramètres annuels */}
             <Card>
               <SectionHeader icon={Repeat} title="Paramètres annuels" subtitle="Fret, budget, réserve d’assistance et méthode"
-                help="Mode Air ou Mer : taux de fret appliqués ; en Mer, les MILDA deviennent éligibles (saisie dans le tableau de l’exercice). Budget total : budget brut de l’exercice. Réserve d’assistance : montant réservé à l’assistance technique, à l’entreposage et à la distribution, déduit du budget total. Méthode (FY27-FY30) : Split FY25, Split quantification (répartition selon les quantités demandées par le Niger, réduites au prorata si le budget ne suffit pas, jamais au-delà du besoin) ou Quantités manuelles (saisie directe dans le tableau de l’exercice)." />
+                help="Mode Air ou Mer : taux de fret appliqués ; en Mer, les MILDA deviennent éligibles (saisie dans le tableau de l’exercice). Budget total : budget brut de l’exercice. Réserve d’assistance : montant réservé à l’assistance technique, à l’entreposage et à la distribution, déduit du budget total. Méthode (FY27-FY30) : Split FY25, Split quantification (répartition selon les quantités demandées par le Niger, réduites au prorata si le budget ne suffit pas ; si le budget dépasse les besoins, la case « Maximiser le budget » répartit aussi le surplus dans les mêmes proportions, sinon les quantités sont plafonnées aux besoins) ou Quantités manuelles (saisie directe dans le tableau de l’exercice)." />
               <div className="space-y-1.5">
                 {YEARS.map((y) => {
                   const yr = simulationData.years[y];
@@ -476,6 +477,14 @@ export default function App() {
                           </select>
                         )}
                       </div>
+                      {y !== '2026' && data.methods[y] === 'quantif' && (
+                        <label className="flex items-center gap-1.5 text-[9px] font-semibold uppercase text-chem-gray2 cursor-pointer"
+                          title="Coché : tout le budget est réparti selon la quantification, même au-delà des besoins. Décoché : plafonné aux besoins.">
+                          <input type="checkbox" checked={!!data.maximize[y]} onChange={(e) => setMaximize(y, e.target.checked)}
+                            className="accent-chem-darkblue w-3.5 h-3.5" />
+                          Maximiser le budget (au-delà des besoins)
+                        </label>
+                      )}
                       <div className="grid grid-cols-2 gap-1.5">
                         <label className="text-[9px] font-semibold uppercase text-chem-gray2">Budget total $
                           <NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget total FY ${y}`} className="w-full block mt-0.5" />
@@ -620,7 +629,7 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
         <ModeBadge mode={yr.mode} />
         {yr.year !== '2026' && (
           <span className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full border ${manual ? 'bg-chem-yellow/20 text-chem-gray1 border-chem-yellow' : 'bg-chem-gray1-10 text-chem-gray2 border-chem-gray1-20'}`}>
-            {METHOD_LABEL[yr.method]}
+            {METHOD_LABEL[yr.method]}{yr.maximize ? ' · budget maximisé' : ''}
           </span>
         )}
         <span className="ml-auto flex items-end gap-4">
@@ -762,7 +771,7 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
             <p className="px-3 py-1.5 text-[9px] text-chem-gray2 italic bg-chem-gray1-5 border-t border-chem-gray1-10">
               Budget intrants {fmtUsd(yr.available)}{yr.mildaCost ? ` − MILDA ${fmtUsd(yr.mildaCost)}` : ''} = budget résiduel {fmtUsd(yr.residual)}
               {yr.method === 'split' && <>, réparti selon le split FY25 sur base EXW (EXW total cible {fmtUsd(yr.eTot)}), quantités arrondies à l’unité inférieure.</>}
-              {yr.method === 'quantif' && <>, réparti selon la quantification Niger sur base EXW, plafonné aux besoins (coût landed de la quantification : {fmtUsd(yr.needLanded)}).</>}
+              {yr.method === 'quantif' && <>, réparti selon la quantification Niger sur base EXW, {yr.maximize ? 'en utilisant tout le budget, au-delà des besoins si possible' : 'plafonné aux besoins'} (coût landed de la quantification : {fmtUsd(yr.needLanded)}).</>}
               {yr.method === 'manual' && <> ; quantités des intrants réguliers saisies manuellement.</>}
             </p>
           )}

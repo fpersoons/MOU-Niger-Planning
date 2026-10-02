@@ -72,6 +72,9 @@ export const DEFAULT_RESERVES = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
 export const METHODS = ['split', 'quantif', 'manual'];
 export const METHOD_LABEL = { split: 'Split FY25', quantif: 'Split quantification', manual: 'Quantités manuelles' };
 export const DEFAULT_METHODS = { 2027: 'split', 2028: 'split', 2029: 'split', 2030: 'split' };
+// Méthode « quantif » : true = tout le budget est réparti selon la quantification,
+// même au-delà des besoins ; false = plafonné aux besoins (défaut).
+export const DEFAULT_MAXIMIZE = { 2027: false, 2028: false, 2029: false, 2030: false };
 
 const emptyManual = () =>
   Object.fromEntries(YEARS.map((y) => [y, Object.fromEntries(MILDA.map((m) => [m.id, 0]))]));
@@ -85,6 +88,7 @@ export const defaultScenarioData = () => ({
   commodities: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
   logistics: { ...DEFAULT_LOGISTICS },
   methods: { ...DEFAULT_METHODS },
+  maximize: { ...DEFAULT_MAXIMIZE },
   accruals: { ...DEFAULT_ACCRUALS },
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
   quantification: emptyRegular(),  // besoins exprimés par le Niger, FY27-FY30
@@ -117,6 +121,7 @@ export const normalizeScenarioData = (d = {}) => {
     commodities,
     logistics: { ...def.logistics, ...(d.logistics || {}) },
     methods,
+    maximize: Object.fromEntries(FUTURE_YEARS.map((y) => [y, !!(d.maximize?.[y] ?? def.maximize[y])])),
     accruals: { ...def.accruals, ...(d.accruals || {}) },
     manualQtys: nested('manualQtys', YEARS),
     quantification: nested('quantification', FUTURE_YEARS),
@@ -191,7 +196,7 @@ export const quantitiesFor = (data, year, method, residual) => {
     const values = Object.fromEntries(REGULAR.map((c) => [c.id, need[c.id] * price(c.id)]));
     const tot = REGULAR.reduce((s, c) => s + values[c.id], 0);
     const weights = Object.fromEntries(REGULAR.map((c) => [c.id, tot > 0 ? values[c.id] / tot : 0]));
-    return allocate(residual, weights, price, rate, need);
+    return allocate(residual, weights, price, rate, data.maximize?.[year] ? undefined : need);
   }
   const sTot = REGULAR.reduce((s, c) => s + num(p(c.id).split), 0);
   const weights = Object.fromEntries(REGULAR.map((c) => [c.id, sTot > 0 ? num(p(c.id).split) / sTot : 0]));
@@ -255,7 +260,7 @@ export const simulate = (data) => {
     const needLanded = REGULAR.reduce((s, c) => s + floorQty(num(quantification?.[y]?.[c.id])) * num(p(c.id).price) * (1 + rateFor(c.id, mode) / 100), 0);
     const total = sum(regular, 'landed') + mildaCost;
     result[y] = {
-      year: y, mode, method, base, reserve, bonus, available, residual, eTot, lines: [...regular, ...milda], mildaCost,
+      year: y, mode, method, maximize: method === 'quantif' && !!data.maximize?.[y], base, reserve, bonus, available, residual, eTot, lines: [...regular, ...milda], mildaCost,
       needLanded,
       totalExw: sum(regular, 'exw') + sum(milda, 'exw'),
       totalFreight: sum(regular, 'freight') + sum(milda, 'freight'),

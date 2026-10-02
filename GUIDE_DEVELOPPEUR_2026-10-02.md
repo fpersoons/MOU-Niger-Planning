@@ -32,6 +32,7 @@ docs/                 cahier des charges d'origine
       "budgets":     { "2026": 13321800, … },
       "reserves":    { "2026": 0, …, "2030": 0 },            // réserve d'assistance
       "methods":     { "2027": "split" | "quantif" | "manual", … },
+      "maximize":    { "2027": false, … },                    // quantif sans plafond
       "commodities": { "1": { "split": 4.41, "price": 13.79, "air": 61.41, "sea": 50, "qty26": 15000 }, … },
       "logistics":   { "2026": "air", …, "2030": "sea" },
       "accruals":    { "amount": 1106690, "desc": "mRDTs (RO Accruals)", "refs": "", "freightPct": 0 },
@@ -55,7 +56,8 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
     `Q_i = ⌊E_tot × w_i / P_i⌋` ;
   - `quantif` : mêmes formules avec `w_i = Qq_i P_i / Σ Qq_j P_j` (poids EXW de la
     quantification), `E_tot` plafonné à `Σ Qq_j P_j` et `Q_i ≤ Qq_i` (jamais au-delà
-    du besoin) : couverture uniforme, ≤ 100 % ;
+    du besoin) : couverture uniforme, ≤ 100 % ; avec `maximize[y] = true`, pas de
+    plafond (tout le résiduel est réparti, couverture uniforme pouvant dépasser 100 %) ;
   - `manual` : `Q_i = regularQtys[y][i]`, solde éventuellement négatif.
   Si le résiduel est négatif ou nul, les méthodes calculées donnent des quantités nulles.
 - Le pré-remplissage des quantités manuelles réutilise `quantitiesFor` sur le résiduel courant.

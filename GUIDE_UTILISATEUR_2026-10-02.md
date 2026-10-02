@@ -19,7 +19,9 @@ L'outil simule les achats d'intrants antipaludiques de FY2026 à FY2030 :
    - **Split quantification** : répartition selon les quantités demandées par le
      Niger (quantification). Si le budget ne suffit pas, toutes les quantités sont
      réduites dans la même proportion ; s'il suffit, la quantification est achetée
-     en entier (jamais au-delà) et le reste apparaît dans le solde ;
+     en entier et le reste apparaît dans le solde — sauf si la case **Maximiser le
+     budget** est cochée : tout le budget est alors réparti dans les proportions de
+     la quantification, au-delà des besoins ;
    - **Quantités manuelles** : vous saisissez les quantités dans le tableau de
      l'exercice et le solde se met à jour en direct, pour « jouer » avec les
      quantités et rester dans le budget.

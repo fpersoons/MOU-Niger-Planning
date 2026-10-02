@@ -82,6 +82,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.methods['2028'] = 'quantif';
   d.methods['2030'] = 'manual';
   d.quantification['2028'][3] = 150000;
+  d.maximize['2028'] = true;
   d.regularQtys['2030'][9] = 777;
   const wb = await buildWorkbook({ name: 'Test', data: d });
   const buf = await wb.xlsx.writeBuffer();
@@ -103,6 +104,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.equal(data.reserves['2028'], 1600000);
   assert.deepEqual(data.methods, d.methods);
   assert.equal(data.quantification['2028'][3], 150000);
+  assert.deepEqual(data.maximize, d.maximize);
   assert.equal(data.regularQtys['2030'][9], 777);
 });
 
@@ -140,6 +142,20 @@ test('split quantification : budget suffisant → plafonné aux besoins', () => 
   for (const l of yr.lines.filter((x) => !x.isMilda)) assert.ok(l.qty <= l.need, `${l.name} dépasse le besoin`);
   assert.ok(yr.lines.filter((x) => !x.isMilda && x.need > 0).every((l) => l.need - l.qty <= 1));
   assert.ok(yr.balance > 0);
+});
+
+test('split quantification maximisé : tout le budget utilisé, au-delà des besoins', () => {
+  const d = withQuantif(0.1);
+  d.maximize['2027'] = true;
+  const yr = simulate(d).years['2027'];
+  assert.ok(yr.maximize);
+  assert.ok(yr.balance >= 0);
+  const reg = yr.lines.filter((x) => !x.isMilda && x.need > 0);
+  assert.ok(reg.every((l) => l.qty > l.need), 'quantités au-delà des besoins');
+  const cov = reg.map((l) => l.coverage);
+  assert.ok((Math.max(...cov) - Math.min(...cov)) / Math.max(...cov) < 0.01, 'proportions conservées');
+  const slack = REGULAR.reduce((s, c) => { const p = d.commodities[c.id]; return s + p.price * (1 + p.air / 100); }, 0);
+  assert.ok(yr.balance < slack, 'budget saturé');
 });
 
 test('quantités manuelles : saisies telles quelles, solde éventuellement négatif', () => {

@@ -98,7 +98,7 @@ export const buildWorkbook = async (scenario) => {
 
   for (const y of YEARS) {
     const yr = sim.years[y];
-    const method = y === '2026' ? 'Quantités FY26 saisies' : METHOD_LABEL[yr.method];
+    const method = y === '2026' ? 'Quantités FY26 saisies' : `${METHOD_LABEL[yr.method]}${yr.maximize ? ' (budget maximisé)' : ''}`;
     const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]} — Méthode : ${method}`]);
     ws.mergeCells(title.number, 1, title.number, COLS);
     title.getCell(1).font = { ...FONT, bold: true };
@@ -131,12 +131,13 @@ export const buildWorkbook = async (scenario) => {
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   wp.addRow([]);
-  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Méthode', ...MILDA.map((m) => `Qté ${m.name}`)]);
+  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Méthode', 'Maximiser le budget', ...MILDA.map((m) => `Qté ${m.name}`)]);
   h2.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
   for (const y of YEARS) {
     const row = wp.addRow([`FY${y}`, MODE_LABEL[data.logistics[y]], data.budgets[y], Number(data.reserves[y]) || 0,
-      y === '2026' ? '—' : METHOD_LABEL[data.methods[y]], ...MILDA.map((m) => Number(data.manualQtys[y][m.id]) || 0)]);
-    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; [6, 7, 8].forEach((i) => (row.getCell(i).numFmt = QTY));
+      y === '2026' ? '—' : METHOD_LABEL[data.methods[y]], y === '2026' ? '—' : data.maximize[y] ? 'Oui' : 'Non',
+      ...MILDA.map((m) => Number(data.manualQtys[y][m.id]) || 0)]);
+    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; [7, 8, 9].forEach((i) => (row.getCell(i).numFmt = QTY));
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   // Quantification Niger et quantités manuelles (FY27-FY30)
@@ -228,6 +229,7 @@ export const parseWorkbookRows = (sheets, base) => {
         const cBudget = findCol(header, [(h) => h.includes('budget')]);
         const cReserve = findCol(header, [(h) => h.includes('reserve')]);
         const cMethod = findCol(header, [(h) => h.includes('methode') || h.includes('method')]);
+        const cMax = findCol(header, [(h) => h.includes('maximis') || h.includes('maximiz')]);
         const cMilda = MILDA.map((m) => header.findIndex((h) => norm(h).includes(norm(m.name))));
         for (let j = i + 1; j < rows.length; j++) {
           const r = rows[j] || [];
@@ -240,6 +242,7 @@ export const parseWorkbookRows = (sheets, base) => {
             const m = METHODS.find((k) => norm(METHOD_LABEL[k]) === norm(r[cMethod]));
             if (m) data.methods[y] = m;
           }
+          if (cMax >= 0 && y !== '2026' && r[cMax] !== null && r[cMax] !== undefined) data.maximize[y] = /^(oui|yes|true|1|x)$/i.test(String(r[cMax]).trim());
           MILDA.forEach((m, k) => { if (cMilda[k] >= 0) data.manualQtys[y][m.id] = Math.max(0, Math.floor(parseVal(r[cMilda[k]]))); });
         }
       }
