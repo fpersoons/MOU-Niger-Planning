@@ -6,8 +6,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CATEGORIES, COMMODITIES, MILDA, YEARS, defaultScenarioData, normalizeScenarioData,
-  num, simulate, splitStatus, zeroedScenarioData,
+  CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, defaultScenarioData,
+  normalizeScenarioData, num, quantitiesFor, simulate, splitStatus, zeroedScenarioData,
 } from './model.js';
 import { exportScenarioXlsx, importWorkbook } from './excel.js';
 import {
@@ -108,7 +108,13 @@ const NumInput = ({ value, onChange, className = '', disabled, ariaLabel }) => {
   return (
     <input type="text" inputMode="decimal" aria-label={ariaLabel} disabled={disabled}
       value={shown}
-      onFocus={() => setDraft(empty ? '' : String(value).replace('.', ','))}
+      onFocus={(e) => {
+        const el = e.target;
+        setDraft(empty ? '' : String(value).replace('.', ','));
+        // Le passage au format brut fait perdre la sélection : on resélectionne tout,
+        // pour qu'une frappe remplace la valeur au lieu de s'y ajouter.
+        requestAnimationFrame(() => { if (document.activeElement === el) el.select(); });
+      }}
       onChange={(e) => { setDraft(e.target.value); onChange(num(e.target.value)); }}
       onBlur={() => setDraft(null)}
       className={`bg-white border border-chem-gray1-20 rounded-md px-1.5 py-0.5 text-[12px] font-normal text-right text-chem-gray1 focus:outline-none focus:border-chem-darkblue disabled:bg-chem-gray1-10 disabled:text-chem-gray1-40 disabled:cursor-not-allowed ${className}`} />
@@ -185,6 +191,19 @@ export default function App() {
   const updateAccruals = (field, value) => updateData((d) => ({ ...d, accruals: { ...d.accruals, [field]: value } }));
   const setMode = (year, mode) => updateData((d) => ({ ...d, logistics: { ...d.logistics, [year]: mode } }));
   const setBudget = (year, value) => updateData((d) => ({ ...d, budgets: { ...d.budgets, [year]: value } }));
+  const setReserve = (year, value) => updateData((d) => ({ ...d, reserves: { ...d.reserves, [year]: Math.max(0, value) } }));
+  const setMethod = (year, method) => updateData((d) => ({ ...d, methods: { ...d.methods, [year]: method } }));
+  const setYearQty = (key, year, id, value) =>
+    updateData((d) => ({ ...d, [key]: { ...d[key], [year]: { ...d[key][year], [id]: Math.max(0, Math.floor(value)) } } }));
+  // Pré-remplit les quantités manuelles d'un exercice (source : quantification brute,
+  // quantification ajustée au budget, split FY25 ou zéro), puis passe en méthode manuelle.
+  const fillRegularQtys = (year, source) => updateData((d) => {
+    const residual = simulate(d).years[year].residual;
+    const qtys = source === 'zero' ? Object.fromEntries(REGULAR.map((c) => [c.id, 0]))
+      : source === 'need' ? { ...d.quantification[year] }
+      : quantitiesFor(d, year, source, residual).qtys;
+    return { ...d, methods: { ...d.methods, [year]: 'manual' }, regularQtys: { ...d.regularQtys, [year]: qtys } };
+  });
 
   const addScenario = (name, scData) => {
     const sc = newScenario(name, scData);
@@ -428,37 +447,60 @@ export default function App() {
               </div>
             </Card>
 
-            {/* Logistique annuelle */}
+            {/* Paramètres annuels */}
             <Card>
-              <SectionHeader icon={Repeat} title="Logistique annuelle" subtitle="Mode de fret et budget initial par exercice"
-                help="Le mode Air applique les taux Air, le mode Mer les taux Mer et rend les MILDA éligibles (saisie manuelle des quantités dans le tableau de l’exercice). Le budget initial est le budget brut contractuel de l’exercice, avant report du surplus FY26." />
+              <SectionHeader icon={Repeat} title="Paramètres annuels" subtitle="Fret, budget, réserve d’assistance et méthode"
+                help="Mode Air ou Mer : taux de fret appliqués ; en Mer, les MILDA deviennent éligibles (saisie dans le tableau de l’exercice). Budget total : budget brut de l’exercice. Réserve d’assistance : montant réservé à l’assistance technique, à l’entreposage et à la distribution, déduit du budget total. Méthode (FY27-FY30) : Split FY25, Split quantification (répartition selon les quantités demandées par le Niger, réduites au prorata si le budget ne suffit pas, jamais au-delà du besoin) ou Quantités manuelles (saisie directe dans le tableau de l’exercice)." />
               <div className="space-y-1.5">
-                {YEARS.map((y) => (
-                  <div key={y} className="flex items-center gap-2 p-1.5 rounded-xl bg-chem-gray1-5">
-                    <span className="text-[10px] font-semibold uppercase w-14">FY {y}</span>
-                    <div className="flex rounded-xl border border-chem-gray1-20 overflow-hidden" role="group" aria-label={`Mode logistique FY ${y}`}>
-                      {['air', 'sea'].map((m) => {
-                        const active = data.logistics[y] === m;
-                        return (
-                          <button key={m} type="button" onClick={() => setMode(y, m)} aria-pressed={active}
-                            className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase transition-all ${active ? 'bg-chem-darkblue text-white' : 'bg-white text-chem-gray2 hover:bg-chem-blue-10'}`}>
-                            {m === 'air' ? <Plane w={11} /> : <Waves w={11} />} {MODE_LABEL[m]}
-                          </button>
-                        );
-                      })}
+                {YEARS.map((y) => {
+                  const yr = simulationData.years[y];
+                  return (
+                    <div key={y} className="p-2 rounded-xl bg-chem-gray1-5 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase w-14">FY {y}</span>
+                        <div className="flex rounded-xl border border-chem-gray1-20 overflow-hidden" role="group" aria-label={`Mode logistique FY ${y}`}>
+                          {['air', 'sea'].map((m) => {
+                            const active = data.logistics[y] === m;
+                            return (
+                              <button key={m} type="button" onClick={() => setMode(y, m)} aria-pressed={active}
+                                className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase transition-all ${active ? 'bg-chem-darkblue text-white' : 'bg-white text-chem-gray2 hover:bg-chem-blue-10'}`}>
+                                {m === 'air' ? <Plane w={11} /> : <Waves w={11} />} {MODE_LABEL[m]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {y !== '2026' && (
+                          <select value={data.methods[y]} onChange={(e) => setMethod(y, e.target.value)} aria-label={`Méthode de calcul FY ${y}`}
+                            className="flex-1 min-w-0 bg-white border border-chem-gray1-20 rounded-md px-1 py-0.5 text-[10px] font-semibold text-chem-darkblue focus:outline-none focus:border-chem-darkblue">
+                            {METHODS.map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}
+                          </select>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <label className="text-[9px] font-semibold uppercase text-chem-gray2">Budget total $
+                          <NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget total FY ${y}`} className="w-full block mt-0.5" />
+                        </label>
+                        <label className="text-[9px] font-semibold uppercase text-chem-gray2">Réserve assistance $
+                          <NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel={`Réserve d’assistance FY ${y}`} className="w-full block mt-0.5" />
+                        </label>
+                      </div>
+                      <p className="text-[9px] text-chem-gray2 text-right">
+                        Budget intrants {y === '2026' ? '' : '(report inclus) '}: <span className="text-chem-gray1">{fmtUsd(yr.available, 0)}</span>
+                      </p>
                     </div>
-                    <NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget initial FY ${y}`} className="flex-1 min-w-0" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           </aside>
 
           {/* ─── Volet principal : tableaux annuels ─── */}
           <main className="lg:col-span-7 space-y-3">
+            <QuantificationCard data={data} sim={simulationData} onChange={(y, id, v) => setYearQty('quantification', y, id, v)} />
             {YEARS.map((y) => (
               <YearTable key={y} yr={simulationData.years[y]} isOpen={open[y]} onToggle={() => setOpen((o) => ({ ...o, [y]: !o[y] }))}
-                data={data} updateAccruals={updateAccruals} updateManualQty={updateManualQty} />
+                data={data} updateAccruals={updateAccruals} updateManualQty={updateManualQty}
+                updateRegularQty={(id, v) => setYearQty('regularQtys', y, id, v)} fillRegularQtys={(src) => fillRegularQtys(y, src)} />
             ))}
           </main>
 
@@ -467,7 +509,7 @@ export default function App() {
             <div className={`p-4 rounded-[1.5rem] border shadow-lg ${role(surplus).bg} ${role(surplus).border}`}>
               <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(surplus).text} flex items-center gap-1`}><TrendingUp w={12} /> Surplus FY2026</p>
               <p className={`text-3xl font-normal tracking-tight ${role(surplus).text} mt-1 break-words`}>{fmtSigned(surplus, 0)}</p>
-              <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − dépenses FY26 (accruals inclus)</p>
+              <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − réserve d’assistance − dépenses FY26 (accruals inclus)</p>
             </div>
             <Card>
               <p className="text-[10px] font-semibold uppercase tracking-tighter text-chem-gray2 flex items-center gap-1"><Layers w={12} className="text-chem-blue" /> Report annuel lissé</p>
@@ -496,9 +538,77 @@ export default function App() {
   );
 }
 
+// ─── Quantification Niger (besoins FY27-FY30) ────────────────────────────────
+function QuantificationCard({ data, sim, onChange }) {
+  const [isOpen, setIsOpen] = useState(() => REGULAR.some((c) => FUTURE_YEARS.some((y) => num(data.quantification[y][c.id]) > 0)));
+  const td = 'px-1.5 py-1 text-right';
+  return (
+    <section className="bg-white rounded-2xl border border-chem-gray1-20 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 p-3">
+        <button type="button" onClick={() => setIsOpen((v) => !v)} aria-expanded={isOpen} className="flex items-center gap-2 flex-1 text-left">
+          {isOpen ? <ChevronDown w={16} className="text-chem-darkblue" /> : <ChevronRight w={16} className="text-chem-gray1-40" />}
+          <span className={`text-[13px] font-bold tracking-tight ${isOpen ? 'text-chem-darkblue' : ''}`}>Quantification Niger</span>
+          <span className="text-[9px] font-medium italic text-chem-gray2">quantités demandées au gouvernement américain, FY27-FY30</span>
+        </button>
+      </div>
+      {isOpen && (
+        <div className="border-t border-chem-gray1-10 overflow-x-auto">
+          <p className="px-3 py-1.5 text-[9px] text-chem-darkblue bg-chem-blue-10 border-b border-chem-blue-20">
+            Ces besoins servent à la méthode « Split quantification » et au pré-remplissage des quantités manuelles ; leur couverture s’affiche dans chaque tableau annuel.
+          </p>
+          <table className="w-full min-w-[600px] tabular-nums">
+            <thead>
+              <tr className="bg-chem-gray1-5 text-chem-gray2 border-b border-chem-gray1-20 text-[10px] font-semibold uppercase">
+                <th className="px-2 py-1.5 text-left">Intrant</th>
+                <th className="px-1.5 py-1.5 text-right">Prix EXW</th>
+                {FUTURE_YEARS.map((y) => <th key={y} className="px-1.5 py-1.5 text-right">FY {y}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {REGULAR.map((c) => (
+                <tr key={c.id} className="border-b border-chem-gray1-10 text-[11px]">
+                  <td className="px-2 py-1 font-semibold">{c.name}</td>
+                  <td className={`${td} text-chem-gray2`}>{fmtUsd(data.commodities[c.id].price)}</td>
+                  {FUTURE_YEARS.map((y) => (
+                    <td key={y} className={td}>
+                      <NumInput value={data.quantification[y][c.id]} onChange={(v) => onChange(y, c.id, v)} ariaLabel={`Quantification ${c.name} FY ${y}`} className="w-24" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="text-[10px]">
+              <tr className="border-t border-chem-gray1-20">
+                <td className="px-2 py-1 font-semibold uppercase text-chem-gray2" colSpan={2}>Coût landed de la quantification</td>
+                {FUTURE_YEARS.map((y) => <td key={y} className={td}>{fmtUsd(sim.years[y].needLanded, 0)}</td>)}
+              </tr>
+              <tr>
+                <td className="px-2 py-1 font-semibold uppercase text-chem-gray2" colSpan={2}>Budget résiduel (après MILDA)</td>
+                {FUTURE_YEARS.map((y) => <td key={y} className={td}>{fmtUsd(sim.years[y].residual, 0)}</td>)}
+              </tr>
+              <tr>
+                <td className="px-2 py-1 font-semibold uppercase text-chem-gray2" colSpan={2}>Couverture possible</td>
+                {FUTURE_YEARS.map((y) => {
+                  const yr = sim.years[y];
+                  if (!yr.needLanded) return <td key={y} className={`${td} text-chem-gray2`}>—</td>;
+                  const cov = Math.max(0, yr.residual) / yr.needLanded;
+                  return <td key={y} className={`${td} ${cov >= 1 ? POS.text : NEG.text}`}>{fmtNum(Math.min(cov, 9.99) * 100, 0)} %</td>;
+                })}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Tableau d'un exercice ───────────────────────────────────────────────────
-function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty }) {
+function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty, updateRegularQty, fillRegularQtys }) {
   const r = role(yr.balance);
+  const manual = yr.method === 'manual';
+  const hasNeed = yr.lines.some((l) => l.need > 0);
+  const chip = 'flex items-center gap-1 text-[9px] font-semibold uppercase text-chem-darkblue bg-white border border-chem-blue-20 rounded-full px-2 py-0.5 hover:bg-chem-blue-10 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
   const th = 'px-2 py-1.5 text-[10px] font-semibold uppercase';
   const td = 'px-2 py-1 text-[11px] font-normal text-right tabular-nums whitespace-nowrap';
   return (
@@ -508,9 +618,14 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
         {isOpen ? <ChevronDown w={16} className="text-chem-darkblue" /> : <ChevronRight w={16} className="text-chem-gray1-40" />}
         <span className={`text-[13px] font-bold tracking-tight ${isOpen ? 'text-chem-darkblue' : ''}`}>FY {yr.year}</span>
         <ModeBadge mode={yr.mode} />
+        {yr.year !== '2026' && (
+          <span className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full border ${manual ? 'bg-chem-yellow/20 text-chem-gray1 border-chem-yellow' : 'bg-chem-gray1-10 text-chem-gray2 border-chem-gray1-20'}`}>
+            {METHOD_LABEL[yr.method]}
+          </span>
+        )}
         <span className="ml-auto flex items-end gap-4">
           <span className="text-right text-[11px]">
-            <span className="block text-[9px] font-semibold uppercase tracking-tighter text-chem-gray2">Budget disponible</span>
+            <span className="block text-[9px] font-semibold uppercase tracking-tighter text-chem-gray2">Budget intrants</span>
             {fmtUsd(yr.available)}
           </span>
           <span className="text-right text-[11px]">
@@ -521,6 +636,16 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
           </span>
         </span>
       </button>
+      {isOpen && manual && (
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-t border-chem-gray1-10 bg-chem-yellow/10">
+          <span className="text-[9px] font-semibold uppercase text-chem-gray2 mr-1">Pré-remplir :</span>
+          <button type="button" className={chip} disabled={!hasNeed} onClick={() => fillRegularQtys('need')} title="Copie les quantités demandées par le Niger">Quantification</button>
+          <button type="button" className={chip} disabled={!hasNeed} onClick={() => fillRegularQtys('quantif')} title="Quantification réduite au prorata pour tenir dans le budget">Quantification ajustée au budget</button>
+          <button type="button" className={chip} onClick={() => fillRegularQtys('split')} title="Quantités calculées selon le split FY25">Split FY25</button>
+          <button type="button" className={chip} onClick={() => { if (window.confirm(`Remettre à zéro les quantités FY ${yr.year} ?`)) fillRegularQtys('zero'); }}>Zéro</button>
+          <span className={`ml-auto text-[10px] ${r.text}`}>{yr.balance >= 0 ? 'Reste à engager' : 'Dépassement'} : {fmtUsd(Math.abs(yr.balance))}</span>
+        </div>
+      )}
       {isOpen && (
         <div className="border-t border-chem-gray1-10 overflow-x-auto">
           <table className="w-full min-w-[640px]">
@@ -561,7 +686,14 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
                       <td className={td}>
                         {l.isMilda
                           ? <NumInput value={data.manualQtys[yr.year][l.id]} onChange={(v) => updateManualQty(yr.year, l.id, v)} ariaLabel={`Quantité ${l.name} FY ${yr.year}`} className="w-28" />
-                          : l.isAccrual ? <span className="text-chem-gray2">—</span> : fmtNum(l.qty)}
+                          : l.isAccrual ? <span className="text-chem-gray2">—</span>
+                          : manual ? <NumInput value={data.regularQtys[yr.year][l.id]} onChange={(v) => updateRegularQty(l.id, v)} ariaLabel={`Quantité ${l.name} FY ${yr.year}`} className="w-28" />
+                          : fmtNum(l.qty)}
+                        {l.need > 0 && (
+                          <span className={`block text-[9px] ${l.coverage >= 0.995 ? 'text-chem-darkgreen2' : 'text-chem-gray2'}`} title="Quantification Niger (besoin) et taux de couverture">
+                            besoin {fmtNum(l.need)} · {fmtNum(l.coverage * 100, 0)} %
+                          </span>
+                        )}
                       </td>
                       <td className={td}>
                         {l.isAccrual
@@ -592,6 +724,12 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
                 <td /><td /><td />
                 <td className="px-2 pt-2 pb-0.5 text-right tabular-nums">{fmtUsd(yr.base)}</td>
               </tr>
+              {yr.reserve > 0 && (
+                <tr className="text-[10px]">
+                  <td className="px-2 py-0.5 font-semibold uppercase text-left" colSpan={4}>Réserve assistance (AT, entreposage, distribution)</td>
+                  <td className="px-2 py-0.5 text-right tabular-nums">{fmtSigned(-yr.reserve)}</td>
+                </tr>
+              )}
               {yr.year !== '2026' && (
                 <tr className="text-[10px]">
                   <td className="px-2 py-0.5 font-semibold uppercase text-left">Report annuel lissé</td>
@@ -599,6 +737,10 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
                   <td className="px-2 py-0.5 text-right tabular-nums">{fmtSigned(yr.bonus)}</td>
                 </tr>
               )}
+              <tr className="text-[10px]">
+                <td className="px-2 py-0.5 font-semibold uppercase text-left" colSpan={4}>Budget disponible pour les intrants</td>
+                <td className="px-2 py-0.5 text-right tabular-nums">{fmtUsd(yr.available)}</td>
+              </tr>
               <tr className="text-[11px] border-t border-white/20">
                 <td className="px-2 py-1.5 font-semibold uppercase text-left">Total dépenses estimées</td>
                 <td />
@@ -618,8 +760,10 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
           </table>
           {yr.year !== '2026' && yr.residual !== undefined && (
             <p className="px-3 py-1.5 text-[9px] text-chem-gray2 italic bg-chem-gray1-5 border-t border-chem-gray1-10">
-              Budget disponible {fmtUsd(yr.available)}{yr.mildaCost ? ` − MILDA ${fmtUsd(yr.mildaCost)}` : ''} = budget résiduel {fmtUsd(yr.residual)},
-              réparti selon le split FY25 sur base EXW (EXW total cible {fmtUsd(yr.eTot)}), quantités arrondies à l’unité inférieure.
+              Budget intrants {fmtUsd(yr.available)}{yr.mildaCost ? ` − MILDA ${fmtUsd(yr.mildaCost)}` : ''} = budget résiduel {fmtUsd(yr.residual)}
+              {yr.method === 'split' && <>, réparti selon le split FY25 sur base EXW (EXW total cible {fmtUsd(yr.eTot)}), quantités arrondies à l’unité inférieure.</>}
+              {yr.method === 'quantif' && <>, réparti selon la quantification Niger sur base EXW, plafonné aux besoins (coût landed de la quantification : {fmtUsd(yr.needLanded)}).</>}
+              {yr.method === 'manual' && <> ; quantités des intrants réguliers saisies manuellement.</>}
             </p>
           )}
         </div>
@@ -675,20 +819,22 @@ function ScenarioList({ store, busy, onSelect, onRename, onNew, onDuplicate, onD
 function Synthesis({ sim }) {
   const rows = YEARS.map((y) => sim.years[y]);
   const max = Math.max(1, ...rows.map((r) => Math.max(r.available, r.total)));
-  const totals = rows.reduce((t, r) => ({ base: t.base + r.base, total: t.total + r.total }), { base: 0, total: 0 });
+  const totals = rows.reduce((t, r) => ({ base: t.base + r.base, reserve: t.reserve + r.reserve, total: t.total + r.total }), { base: 0, reserve: 0, total: 0 });
+  const totalBalance = totals.base - totals.reserve - totals.total;
   return (
     <section className="bg-white p-4 md:p-6 rounded-[2rem] border border-chem-gray1-20 shadow-sm overflow-hidden">
       <SectionHeader icon={Calculator} title="Synthèse FY26-FY30" subtitle="Budget disponible, dépenses et solde par exercice"
-        help="Barre claire : budget disponible (budget initial + report lissé pour FY27-FY30). Barre foncée : dépenses estimées (landed). Le total pluriannuel compare la somme des budgets initiaux à la somme des dépenses." />
+        help="Barre claire : budget disponible pour les intrants (budget total − réserve d’assistance, + report lissé pour FY27-FY30). Barre foncée : dépenses estimées (landed). Le solde pluriannuel = budgets totaux − réserves − dépenses (le report lissé ne fait que déplacer le surplus FY26)." />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px]">
           <thead>
             <tr className="text-[10px] font-semibold uppercase text-chem-gray2 border-b border-chem-gray1-20">
               <th className="px-2 py-1.5 text-left">Exercice</th>
               <th className="px-2 py-1.5 text-left">Logistique</th>
-              <th className="px-2 py-1.5 text-right">Budget initial</th>
+              <th className="px-2 py-1.5 text-right">Budget total</th>
+              <th className="px-2 py-1.5 text-right">Réserve</th>
               <th className="px-2 py-1.5 text-right">Report lissé</th>
-              <th className="px-2 py-1.5 text-right">Budget disponible</th>
+              <th className="px-2 py-1.5 text-right">Budget intrants</th>
               <th className="px-2 py-1.5 text-right">Dépenses</th>
               <th className="px-2 py-1.5 text-right">Solde final</th>
               <th className="px-2 py-1.5 w-[22%]"><span className="sr-only">Graphique</span></th>
@@ -700,6 +846,7 @@ function Synthesis({ sim }) {
                 <td className="px-2 py-1.5 font-semibold">FY {r.year}</td>
                 <td className="px-2 py-1.5"><ModeBadge mode={r.mode} /></td>
                 <td className="px-2 py-1.5 text-right">{fmtUsd(r.base, 0)}</td>
+                <td className="px-2 py-1.5 text-right">{r.reserve ? fmtSigned(-r.reserve, 0) : '—'}</td>
                 <td className="px-2 py-1.5 text-right">{r.year === '2026' ? '—' : fmtSigned(r.bonus, 0)}</td>
                 <td className="px-2 py-1.5 text-right">{fmtUsd(r.available, 0)}</td>
                 <td className="px-2 py-1.5 text-right">{fmtUsd(r.total, 0)}</td>
@@ -717,9 +864,10 @@ function Synthesis({ sim }) {
             <tr className="text-[12px] tabular-nums">
               <td className="px-2 py-2 font-bold uppercase" colSpan={2}>Total FY26-FY30</td>
               <td className="px-2 py-2 text-right">{fmtUsd(totals.base, 0)}</td>
+              <td className="px-2 py-2 text-right">{totals.reserve ? fmtSigned(-totals.reserve, 0) : '—'}</td>
               <td /><td />
               <td className="px-2 py-2 text-right">{fmtUsd(totals.total, 0)}</td>
-              <td className={`px-2 py-2 text-right ${role(totals.base - totals.total).text}`}>{fmtSigned(totals.base - totals.total, 0)}</td>
+              <td className={`px-2 py-2 text-right ${role(totalBalance).text}`}>{fmtSigned(totalBalance, 0)}</td>
               <td />
             </tr>
           </tfoot>

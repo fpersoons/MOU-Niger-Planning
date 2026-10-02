@@ -61,19 +61,37 @@ export const DEFAULT_LOGISTICS = { 2026: 'air', 2027: 'air', 2028: 'sea', 2029: 
 
 export const DEFAULT_ACCRUALS = { amount: 1106690, desc: 'mRDTs (RO Accruals)', refs: '', freightPct: 0 };
 
+// Réserve d'assistance (assistance technique, entreposage, distribution) déduite
+// du budget total de chaque exercice. 0 par défaut (budgets du cahier des charges).
+export const DEFAULT_RESERVES = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
+
+// Méthode de calcul des quantités des intrants réguliers en FY27-FY30 :
+//  split   — répartition du budget selon le split FY25 (base EXW) ;
+//  quantif — répartition selon la quantification Niger (base EXW), plafonnée aux besoins ;
+//  manual  — quantités saisies directement.
+export const METHODS = ['split', 'quantif', 'manual'];
+export const METHOD_LABEL = { split: 'Split FY25', quantif: 'Split quantification', manual: 'Quantités manuelles' };
+export const DEFAULT_METHODS = { 2027: 'split', 2028: 'split', 2029: 'split', 2030: 'split' };
+
 const emptyManual = () =>
   Object.fromEntries(YEARS.map((y) => [y, Object.fromEntries(MILDA.map((m) => [m.id, 0]))]));
+const emptyRegular = () =>
+  Object.fromEntries(FUTURE_YEARS.map((y) => [y, Object.fromEntries(REGULAR.map((c) => [c.id, 0]))]));
 
 /** Données d'un scénario aux valeurs par défaut du cahier des charges. */
 export const defaultScenarioData = () => ({
   budgets: { ...DEFAULT_BUDGETS },
+  reserves: { ...DEFAULT_RESERVES },
   commodities: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
   logistics: { ...DEFAULT_LOGISTICS },
+  methods: { ...DEFAULT_METHODS },
   accruals: { ...DEFAULT_ACCRUALS },
-  manualQtys: emptyManual(),
+  manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
+  quantification: emptyRegular(),  // besoins exprimés par le Niger, FY27-FY30
+  regularQtys: emptyRegular(),     // quantités saisies (méthode « manual »), FY27-FY30
 });
 
-/** Remise à zéro (Option C) : intrants, accruals et MILDA à 0 ; budgets et logistique conservés. */
+/** Remise à zéro (Option C) : intrants, accruals, MILDA et quantités à 0 ; budgets, réserves, logistique et méthodes conservés. */
 export const zeroedScenarioData = (data) => ({
   ...data,
   commodities: Object.fromEntries(
@@ -81,6 +99,8 @@ export const zeroedScenarioData = (data) => ({
   ),
   accruals: { amount: 0, desc: data.accruals?.desc ?? '', refs: '', freightPct: 0 },
   manualQtys: emptyManual(),
+  quantification: emptyRegular(),
+  regularQtys: emptyRegular(),
 });
 
 /** Complète un scénario partiel (import JSON ancien / incomplet) avec les valeurs par défaut. */
@@ -88,14 +108,19 @@ export const normalizeScenarioData = (d = {}) => {
   const def = defaultScenarioData();
   const commodities = {};
   for (const c of COMMODITIES) commodities[c.id] = { ...def.commodities[c.id], ...(d.commodities?.[c.id] || {}) };
-  const manualQtys = {};
-  for (const y of YEARS) manualQtys[y] = { ...def.manualQtys[y], ...(d.manualQtys?.[y] || {}) };
+  const nested = (key, years) => Object.fromEntries(years.map((y) => [y, { ...def[key][y], ...(d[key]?.[y] || {}) }]));
+  const methods = { ...def.methods, ...(d.methods || {}) };
+  for (const y of FUTURE_YEARS) if (!METHODS.includes(methods[y])) methods[y] = 'split';
   return {
     budgets: { ...def.budgets, ...(d.budgets || {}) },
+    reserves: { ...def.reserves, ...(d.reserves || {}) },
     commodities,
     logistics: { ...def.logistics, ...(d.logistics || {}) },
+    methods,
     accruals: { ...def.accruals, ...(d.accruals || {}) },
-    manualQtys,
+    manualQtys: nested('manualQtys', YEARS),
+    quantification: nested('quantification', FUTURE_YEARS),
+    regularQtys: nested('regularQtys', FUTURE_YEARS),
   };
 };
 
@@ -130,17 +155,60 @@ const line = (c, qty, price, ratePct) => {
 
 const sum = (arr, k) => arr.reduce((s, x) => s + x[k], 0);
 
+const floorQty = (x) => Math.max(0, Math.floor(x + 1e-9));
+
+/**
+ * Répartit un budget landed entre les intrants réguliers selon des poids EXW
+ * (w_i normalisés) : E_tot = budget / Σ w_i (1 + r_i), Q_i = ⌊E_tot × w_i / P_i⌋.
+ * `cap` (facultatif) plafonne chaque quantité (besoins de la quantification).
+ */
+const allocate = (budget, weights, price, rate, cap) => {
+  const factor = REGULAR.reduce((s, c) => s + weights[c.id] * (1 + rate(c.id) / 100), 0);
+  let eTot = factor > 0 && budget > 0 ? budget / factor : 0;
+  if (cap) {
+    // E_tot maximal tel qu'aucune quantité ne dépasse son besoin.
+    const limits = REGULAR.filter((c) => weights[c.id] > 0).map((c) => (cap[c.id] * price(c.id)) / weights[c.id]);
+    if (limits.length) eTot = Math.min(eTot, ...limits);
+  }
+  const qtys = Object.fromEntries(REGULAR.map((c) => {
+    const pr = price(c.id);
+    const q = pr > 0 ? floorQty((eTot * weights[c.id]) / pr) : 0;
+    return [c.id, cap ? Math.min(q, floorQty(cap[c.id])) : q];
+  }));
+  return { eTot, qtys };
+};
+
+/** Quantités FY27-30 d'une méthode donnée, pour un budget résiduel (utilisé aussi par les boutons de pré-remplissage). */
+export const quantitiesFor = (data, year, method, residual) => {
+  const p = (id) => data.commodities[id] || {};
+  const price = (id) => num(p(id).price);
+  const rate = (id) => num(data.logistics[year] === 'air' ? p(id).air : p(id).sea);
+  if (method === 'manual') {
+    return { eTot: null, qtys: Object.fromEntries(REGULAR.map((c) => [c.id, floorQty(num(data.regularQtys?.[year]?.[c.id]))])) };
+  }
+  if (method === 'quantif') {
+    const need = Object.fromEntries(REGULAR.map((c) => [c.id, floorQty(num(data.quantification?.[year]?.[c.id]))]));
+    const values = Object.fromEntries(REGULAR.map((c) => [c.id, need[c.id] * price(c.id)]));
+    const tot = REGULAR.reduce((s, c) => s + values[c.id], 0);
+    const weights = Object.fromEntries(REGULAR.map((c) => [c.id, tot > 0 ? values[c.id] / tot : 0]));
+    return allocate(residual, weights, price, rate, need);
+  }
+  const sTot = REGULAR.reduce((s, c) => s + num(p(c.id).split), 0);
+  const weights = Object.fromEntries(REGULAR.map((c) => [c.id, sTot > 0 ? num(p(c.id).split) / sTot : 0]));
+  return allocate(residual, weights, price, rate);
+};
+
 // ─── Simulation FY26-FY30 (§3) ──────────────────────────────────────────────
 export const simulate = (data) => {
-  const { budgets, commodities, logistics, accruals, manualQtys } = data;
+  const { budgets, reserves = {}, commodities, logistics, accruals, manualQtys, methods = {}, quantification = {} } = data;
   const p = (id) => commodities[id] || {};
   const rateFor = (id, mode) => num(mode === 'air' ? p(id).air : p(id).sea);
   const mildaLines = (y) =>
     logistics[y] === 'sea'
-      ? MILDA.map((m) => line(m, Math.max(0, Math.floor(num(manualQtys?.[y]?.[m.id]))), num(p(m.id).price), num(p(m.id).sea)))
+      ? MILDA.map((m) => line(m, floorQty(num(manualQtys?.[y]?.[m.id])), num(p(m.id).price), num(p(m.id).sea)))
       : [];
 
-  // FY 2026 : quantités saisies
+  // FY 2026 : quantités saisies ; la réserve d'assistance est déduite du budget.
   const mode26 = logistics['2026'];
   const regular26 = REGULAR.map((c) => line(c, Math.max(0, num(p(c.id).qty26)), num(p(c.id).price), rateFor(c.id, mode26)));
   const milda26 = mildaLines('2026');
@@ -151,13 +219,15 @@ export const simulate = (data) => {
     qty: null, rate: num(accruals.freightPct), exw: accExw, freight: accFreight, landed: accExw + accFreight,
   };
   const base26 = num(budgets['2026']);
+  const reserve26 = num(reserves['2026']);
   const total26 = sum(regular26, 'landed') + sum(milda26, 'landed') + accrual.landed;
-  const surplus = base26 - total26;
+  const available26 = base26 - reserve26;
+  const surplus = available26 - total26;
   const bonus = surplus / 4;
 
   const result = {
     2026: {
-      year: '2026', mode: mode26, base: base26, bonus: 0, available: base26,
+      year: '2026', mode: mode26, method: 'fy26', base: base26, reserve: reserve26, bonus: 0, available: available26,
       lines: [...regular26, ...milda26, accrual], mildaCost: sum(milda26, 'landed'),
       totalExw: sum(regular26, 'exw') + sum(milda26, 'exw') + accExw,
       totalFreight: sum(regular26, 'freight') + sum(milda26, 'freight') + accFreight,
@@ -165,27 +235,28 @@ export const simulate = (data) => {
     },
   };
 
-  // FY 2027-2030 : répartition proportionnelle sur base EXW
+  // FY 2027-2030 : budget intrants = budget total − réserve + report lissé.
   const sTot = REGULAR.reduce((s, c) => s + num(p(c.id).split), 0);
   for (const y of FUTURE_YEARS) {
     const mode = logistics[y];
+    const method = METHODS.includes(methods[y]) ? methods[y] : 'split';
     const base = num(budgets[y]);
-    const available = base + bonus;
+    const reserve = num(reserves[y]);
+    const available = base - reserve + bonus;
     const milda = mildaLines(y);
     const mildaCost = sum(milda, 'landed');
     const residual = available - mildaCost;
-    const factor = sTot > 0 ? REGULAR.reduce((s, c) => s + (num(p(c.id).split) / sTot) * (1 + rateFor(c.id, mode) / 100), 0) : 0;
-    const eTot = factor > 0 && residual > 0 ? residual / factor : 0;
+    const { eTot, qtys } = quantitiesFor(data, y, method, residual);
     const regular = REGULAR.map((c) => {
-      const price = num(p(c.id).price);
-      const w = sTot > 0 ? num(p(c.id).split) / sTot : 0;
-      const target = eTot * w;
-      const qty = price > 0 ? Math.max(0, Math.floor(target / price + 1e-9)) : 0;
-      return { ...line(c, qty, price, rateFor(c.id, mode)), weight: w, targetExw: target };
+      const l = line(c, qtys[c.id], num(p(c.id).price), rateFor(c.id, mode));
+      const need = floorQty(num(quantification?.[y]?.[c.id]));
+      return { ...l, weight: sTot > 0 ? num(p(c.id).split) / sTot : 0, need, coverage: need > 0 ? l.qty / need : null };
     });
+    const needLanded = REGULAR.reduce((s, c) => s + floorQty(num(quantification?.[y]?.[c.id])) * num(p(c.id).price) * (1 + rateFor(c.id, mode) / 100), 0);
     const total = sum(regular, 'landed') + mildaCost;
     result[y] = {
-      year: y, mode, base, bonus, available, residual, eTot, lines: [...regular, ...milda], mildaCost,
+      year: y, mode, method, base, reserve, bonus, available, residual, eTot, lines: [...regular, ...milda], mildaCost,
+      needLanded,
       totalExw: sum(regular, 'exw') + sum(milda, 'exw'),
       totalFreight: sum(regular, 'freight') + sum(milda, 'freight'),
       total, balance: available - total,

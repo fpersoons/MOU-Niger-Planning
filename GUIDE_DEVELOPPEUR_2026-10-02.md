@@ -30,10 +30,14 @@ docs/                 cahier des charges d'origine
   { "id": "…", "name": "…", "updatedAt": "ISO",
     "data": {
       "budgets":     { "2026": 13321800, … },
+      "reserves":    { "2026": 0, …, "2030": 0 },            // réserve d'assistance
+      "methods":     { "2027": "split" | "quantif" | "manual", … },
       "commodities": { "1": { "split": 4.41, "price": 13.79, "air": 61.41, "sea": 50, "qty26": 15000 }, … },
       "logistics":   { "2026": "air", …, "2030": "sea" },
       "accruals":    { "amount": 1106690, "desc": "mRDTs (RO Accruals)", "refs": "", "freightPct": 0 },
-      "manualQtys":  { "2026": { "11": 0, "12": 0, "13": 0 }, … }
+      "manualQtys":  { "2026": { "11": 0, "12": 0, "13": 0 }, … },   // MILDA
+      "quantification": { "2027": { "1": 0, …, "10": 0 }, … },        // besoins Niger
+      "regularQtys":    { "2027": { "1": 0, …, "10": 0 }, … }         // méthode manual
     } } ] }
 ```
 
@@ -43,12 +47,18 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
 ## Moteur de calcul (`simulate`)
 
 - FY26 : `Landed = Q × P × (1 + r)` avec r selon le mode FY26 ; MILDA comptées
-  uniquement en mode Mer ; accruals `EXW × (1 + taux)`. Surplus = budget − total ;
-  bonus = surplus / 4.
-- FY27-30 : `dispo = budget + bonus` ; `résiduel = dispo − coût landed MILDA` ;
-  `w_i = split_i / Σsplit` ; `E_tot = résiduel / Σ w_i (1 + r_i)` ;
-  `Q_i = ⌊E_tot × w_i / P_i⌋`. Si le résiduel est négatif ou nul, les quantités
-  régulières sont nulles (le solde négatif signale le dépassement dû aux MILDA).
+  uniquement en mode Mer ; accruals `EXW × (1 + taux)`.
+  Surplus = budget − réserve − total ; bonus = surplus / 4.
+- FY27-30 : `dispo = budget − réserve + bonus` ; `résiduel = dispo − coût landed MILDA`.
+  Quantités des intrants réguliers (`quantitiesFor`) selon `methods[y]` :
+  - `split` : `w_i = split_i / Σsplit` ; `E_tot = résiduel / Σ w_i (1 + r_i)` ;
+    `Q_i = ⌊E_tot × w_i / P_i⌋` ;
+  - `quantif` : mêmes formules avec `w_i = Qq_i P_i / Σ Qq_j P_j` (poids EXW de la
+    quantification), `E_tot` plafonné à `Σ Qq_j P_j` et `Q_i ≤ Qq_i` (jamais au-delà
+    du besoin) : couverture uniforme, ≤ 100 % ;
+  - `manual` : `Q_i = regularQtys[y][i]`, solde éventuellement négatif.
+  Si le résiduel est négatif ou nul, les méthodes calculées donnent des quantités nulles.
+- Le pré-remplissage des quantités manuelles réutilise `quantitiesFor` sur le résiduel courant.
 
 ## Excel
 
@@ -61,6 +71,10 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
   `parseVal` (heuristique du cahier des charges §5).
 
 ## Écarts au cahier des charges
+
+Ajouts Niger (MOU) : réserve d'assistance par exercice, quantification Niger et
+méthodes de calcul FY27-FY30 (split FY25, split quantification, quantités manuelles) ;
+colonnes « Quantification (besoin) » et « Couverture » dans l'export Excel.
 
 Imposés par le design system : icônes maison au lieu de `lucide-react`, en-tête blanc
 et palette Chemonics dans l'UI, grille 3/7/2. Demandés : JSON local au lieu de

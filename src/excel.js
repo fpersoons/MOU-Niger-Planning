@@ -3,7 +3,8 @@
 // Import : SheetJS. Les deux bibliothèques sont chargées à la demande.
 
 import {
-  CATEGORIES, COMMODITIES, MILDA, YEARS, byId, normalizeScenarioData, parseVal, simulate,
+  CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
+  normalizeScenarioData, parseVal, simulate,
 } from './model.js';
 
 const FONT = { size: 11, name: 'Arial' };
@@ -42,9 +43,11 @@ const writeHeader = (ws, labels) => {
   return row;
 };
 
+const COLS = 7; // Intrant, Quantité, EXW, Fret, Landed, Besoin, Couverture
+
 const writeCategory = (ws, label) => {
   const row = ws.addRow([label]);
-  ws.mergeCells(row.number, 1, row.number, 5);
+  ws.mergeCells(row.number, 1, row.number, COLS);
   const cell = row.getCell(1);
   cell.font = { ...FONT, bold: true, italic: true };
   cell.fill = CATEGORY_FILL;
@@ -52,10 +55,13 @@ const writeCategory = (ws, label) => {
 };
 
 const writeLine = (ws, l) => {
-  const row = ws.addRow([l.name, l.qty, l.exw, l.freight, l.landed]);
+  const hasNeed = l.need !== undefined && l.need > 0;
+  const row = ws.addRow([l.name, l.qty, l.exw, l.freight, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage : null]);
   row.getCell(2).numFmt = QTY;
   [3, 4, 5].forEach((c) => (row.getCell(c).numFmt = MONEY));
-  styleRow(row);
+  row.getCell(6).numFmt = QTY;
+  row.getCell(7).numFmt = '0.0%';
+  styleRow(row, 1, COLS);
   return row;
 };
 
@@ -81,7 +87,7 @@ export const buildWorkbook = async (scenario) => {
 
   // ─── Feuille 1 : simulation ───
   const ws = wb.addWorksheet('Simulation', { views: [{ showGridLines: false }] });
-  ws.columns = [{ width: 44 }, { width: 16 }, { width: 20 }, { width: 20 }, { width: 22 }];
+  ws.columns = [{ width: 44 }, { width: 16 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 18 }, { width: 13 }];
   const t = ws.addRow(['Planificateur Budgétaire Intrants Paludisme FY26-FY30']);
   t.getCell(1).font = { ...FONT, bold: true };
   const s = ws.addRow([`Scénario : ${scenario.name}`]);
@@ -92,10 +98,11 @@ export const buildWorkbook = async (scenario) => {
 
   for (const y of YEARS) {
     const yr = sim.years[y];
-    const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]}`]);
-    ws.mergeCells(title.number, 1, title.number, 5);
+    const method = y === '2026' ? 'Quantités FY26 saisies' : METHOD_LABEL[yr.method];
+    const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]} — Méthode : ${method}`]);
+    ws.mergeCells(title.number, 1, title.number, COLS);
     title.getCell(1).font = { ...FONT, bold: true };
-    writeHeader(ws, ['Intrant', 'Quantité', 'Total EXW', 'Fret', 'Total Landed']);
+    writeHeader(ws, ['Intrant', 'Quantité', 'Total EXW', 'Fret', 'Total Landed', 'Quantification (besoin)', 'Couverture']);
     for (const cat of CATEGORIES) {
       const lines = yr.lines.filter((l) => l.category === cat);
       if (!lines.length) continue;
@@ -103,8 +110,10 @@ export const buildWorkbook = async (scenario) => {
       lines.forEach((l) => writeLine(ws, l));
     }
     writeTotal(ws, 'Budget de base', yr.base);
+    if (yr.reserve) writeTotal(ws, 'Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
     if (y !== '2026') writeTotal(ws, 'Report annuel lissé (Surplus FY26 / 4)', yr.bonus);
-    writeTotal(ws, 'Budget disponible total', yr.available, { bold: true });
+    writeTotal(ws, 'Budget disponible pour les intrants', yr.available, { bold: true });
+    if (yr.needLanded) writeTotal(ws, 'Coût landed de la quantification (pour mémoire)', yr.needLanded);
     writeTotal(ws, 'Total dépenses', yr.total, { bold: true });
     writeTotal(ws, 'Solde final (reste)', yr.balance, { bold: true, sign: true });
     ws.addRow([]);
@@ -122,12 +131,23 @@ export const buildWorkbook = async (scenario) => {
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   wp.addRow([]);
-  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', ...MILDA.map((m) => `Qté ${m.name}`)]);
+  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Méthode', ...MILDA.map((m) => `Qté ${m.name}`)]);
   h2.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
   for (const y of YEARS) {
-    const row = wp.addRow([`FY${y}`, MODE_LABEL[data.logistics[y]], data.budgets[y], ...MILDA.map((m) => Number(data.manualQtys[y][m.id]) || 0)]);
-    row.getCell(3).numFmt = MONEY; [4, 5, 6].forEach((i) => (row.getCell(i).numFmt = QTY));
+    const row = wp.addRow([`FY${y}`, MODE_LABEL[data.logistics[y]], data.budgets[y], Number(data.reserves[y]) || 0,
+      y === '2026' ? '—' : METHOD_LABEL[data.methods[y]], ...MILDA.map((m) => Number(data.manualQtys[y][m.id]) || 0)]);
+    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; [6, 7, 8].forEach((i) => (row.getCell(i).numFmt = QTY));
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
+  }
+  // Quantification Niger et quantités manuelles (FY27-FY30)
+  for (const [label, key] of [['Quantification Niger', 'quantification'], ['Quantités manuelles', 'regularQtys']]) {
+    wp.addRow([]);
+    const h = wp.addRow([label, ...FUTURE_YEARS.map((y) => `FY${y}`)]);
+    h.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+    for (const c of REGULAR) {
+      const row = wp.addRow([c.name, ...FUTURE_YEARS.map((y) => Number(data[key][y][c.id]) || 0)]);
+      row.eachCell({ includeEmpty: true }, (cell, i) => { cell.font = FONT; if (i > 1) cell.numFmt = QTY; });
+    }
   }
   wp.addRow([]);
   const acc = [
@@ -206,6 +226,8 @@ export const parseWorkbookRows = (sheets, base) => {
       if (first === 'exercice' || first === 'fiscalyear' || first === 'year') {
         const cMode = findCol(header, [(h) => h.includes('logist') || h.includes('mode')]);
         const cBudget = findCol(header, [(h) => h.includes('budget')]);
+        const cReserve = findCol(header, [(h) => h.includes('reserve')]);
+        const cMethod = findCol(header, [(h) => h.includes('methode') || h.includes('method')]);
         const cMilda = MILDA.map((m) => header.findIndex((h) => norm(h).includes(norm(m.name))));
         for (let j = i + 1; j < rows.length; j++) {
           const r = rows[j] || [];
@@ -213,7 +235,23 @@ export const parseWorkbookRows = (sheets, base) => {
           if (!y) break;
           if (cMode >= 0 && r[cMode]) data.logistics[y] = /air/i.test(String(r[cMode])) ? 'air' : 'sea';
           if (cBudget >= 0 && r[cBudget] !== undefined && r[cBudget] !== null && r[cBudget] !== '') data.budgets[y] = parseVal(r[cBudget]);
+          if (cReserve >= 0 && r[cReserve] !== undefined && r[cReserve] !== null && r[cReserve] !== '') data.reserves[y] = parseVal(r[cReserve]);
+          if (cMethod >= 0 && y !== '2026') {
+            const m = METHODS.find((k) => norm(METHOD_LABEL[k]) === norm(r[cMethod]));
+            if (m) data.methods[y] = m;
+          }
           MILDA.forEach((m, k) => { if (cMilda[k] >= 0) data.manualQtys[y][m.id] = Math.max(0, Math.floor(parseVal(r[cMilda[k]]))); });
+        }
+      }
+      // Quantification Niger / quantités manuelles (une colonne par exercice FY27-FY30)
+      if (first === 'quantificationniger' || first === 'quantitesmanuelles') {
+        const key = first === 'quantificationniger' ? 'quantification' : 'regularQtys';
+        const cols = FUTURE_YEARS.map((y) => header.findIndex((h) => String(h ?? '').includes(y)));
+        for (let j = i + 1; j < rows.length; j++) {
+          const r = rows[j] || [];
+          const id = NAME_INDEX[norm(r[0])];
+          if (!id) break;
+          FUTURE_YEARS.forEach((y, k) => { if (cols[k] >= 0) data[key][y][id] = Math.max(0, Math.floor(parseVal(r[cols[k]]))); });
         }
       }
       // Lignes Accruals

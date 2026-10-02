@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { defaultScenarioData, simulate, parseVal, splitStatus, REGULAR, MILDA, zeroedScenarioData } from '../src/model.js';
+import { defaultScenarioData, simulate, parseVal, splitStatus, REGULAR, MILDA, zeroedScenarioData, normalizeScenarioData, quantitiesFor } from '../src/model.js';
 import { buildWorkbook, parseWorkbookRows, exportFileName } from '../src/excel.js';
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≠ ${b}`);
@@ -78,6 +78,11 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.budgets['2029'] = 8000000;
   d.accruals.freightPct = 2.35;
   d.accruals.desc = 'Test accruals';
+  d.reserves['2028'] = 1600000;
+  d.methods['2028'] = 'quantif';
+  d.methods['2030'] = 'manual';
+  d.quantification['2028'][3] = 150000;
+  d.regularQtys['2030'][9] = 777;
   const wb = await buildWorkbook({ name: 'Test', data: d });
   const buf = await wb.xlsx.writeBuffer();
   const x = XLSX.read(buf, { type: 'buffer' });
@@ -95,4 +100,66 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   close(data.accruals.freightPct, 2.35);
   assert.equal(data.accruals.desc, 'Test accruals');
   close(data.accruals.amount, 1106690);
+  assert.equal(data.reserves['2028'], 1600000);
+  assert.deepEqual(data.methods, d.methods);
+  assert.equal(data.quantification['2028'][3], 150000);
+  assert.equal(data.regularQtys['2030'][9], 777);
+});
+
+test('réserve d’assistance déduite du budget intrants', () => {
+  const d = defaultScenarioData();
+  const ref = simulate(d);
+  d.reserves['2026'] = 100000;
+  d.reserves['2027'] = 1600000;
+  const sim = simulate(d);
+  close(sim.surplus, ref.surplus - 100000);
+  close(sim.years['2027'].available, d.budgets['2027'] - 1600000 + sim.bonus);
+  assert.ok(sim.years['2027'].total < ref.years['2027'].total);
+  assert.ok(sim.years['2027'].balance >= 0);
+});
+
+const withQuantif = (scale) => {
+  const d = defaultScenarioData();
+  for (const c of REGULAR) d.quantification['2027'][c.id] = Math.round(d.commodities[c.id].qty26 * scale) || 1000 * scale;
+  d.methods['2027'] = 'quantif';
+  return d;
+};
+
+test('split quantification : budget insuffisant → réduction proportionnelle sans dépassement', () => {
+  const d = withQuantif(10);
+  const yr = simulate(d).years['2027'];
+  assert.ok(yr.balance >= 0);
+  const cov = yr.lines.filter((l) => !l.isMilda && l.need > 0).map((l) => l.coverage);
+  assert.ok(Math.max(...cov) < 1);
+  assert.ok(Math.max(...cov) - Math.min(...cov) < 0.01, 'couverture uniforme');
+});
+
+test('split quantification : budget suffisant → plafonné aux besoins', () => {
+  const d = withQuantif(0.1);
+  const yr = simulate(d).years['2027'];
+  for (const l of yr.lines.filter((x) => !x.isMilda)) assert.ok(l.qty <= l.need, `${l.name} dépasse le besoin`);
+  assert.ok(yr.lines.filter((x) => !x.isMilda && x.need > 0).every((l) => l.need - l.qty <= 1));
+  assert.ok(yr.balance > 0);
+});
+
+test('quantités manuelles : saisies telles quelles, solde éventuellement négatif', () => {
+  const d = defaultScenarioData();
+  d.methods['2029'] = 'manual';
+  d.regularQtys['2029'][9] = 50000000;
+  const yr = simulate(d).years['2029'];
+  assert.equal(yr.lines.find((l) => l.id === 9).qty, 50000000);
+  assert.equal(yr.lines.find((l) => l.id === 1).qty, 0);
+  assert.ok(yr.balance < 0);
+  // pré-remplissage « ajuster au budget » = méthode quantif sur le même budget résiduel
+  const q = quantitiesFor(d, '2029', 'split', yr.residual).qtys;
+  assert.ok(q[3] > 0);
+});
+
+test('anciens scénarios (sans réserve ni méthode) complétés par défaut', () => {
+  const old = defaultScenarioData();
+  delete old.reserves; delete old.methods; delete old.quantification; delete old.regularQtys;
+  const n = normalizeScenarioData(old);
+  assert.equal(n.reserves['2027'], 0);
+  assert.equal(n.methods['2027'], 'split');
+  assert.equal(n.quantification['2030'][1], 0);
 });
