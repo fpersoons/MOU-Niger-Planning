@@ -62,29 +62,29 @@ const toLanded = (p) => ({
 });
 // Paramètres éditables par intrant : prix EXW, coût livré unitaire bateau + route
 // (landedSea) et avion (landedAir), quantité FY26.
-// Source des prix EXW et des coûts livrés par voie maritime : « Malaria_MOU_27-Niger.xlsx »
-// (feuille Costing reference sheet : Reference price per pack et TLC Final price/pack,
-// qui inclut fret maritime, assurance, douane, QA et frais), pour les références retenues
-// par le Niger dans le Commodity calculator. Le fichier ne donnant pas de coût aérien,
-// le coût livré avion applique au prix EXW le surcoût aérien de référence (REFERENCE_PARAMS.air).
-const MOU27_COSTS = {
-  1: { price: 13.14, landedSea: 16.028172 },  // SP 25/500mg, plaquette de 3 cp, boîte de 50 plaquettes
-  2: { price: 11.91, landedSea: 14.527818 },  // AQ + SP 76.5mg + 12.5/250mg, boîte de 50 co-blisters
-  3: { price: 14, landedSea: 17.0772 },       // AQ + SP 153mg + 25/500mg, boîte de 50 co-blisters
-  4: { price: 8, landedSea: 10.747648 },      // TDR Pf/Pv, kit de 25 tests
-  5: { price: 6, landedSea: 7.3188 },         // AL 20/120mg dispersible, 6 cp × 30 plaquettes
-  6: { price: 10.3, landedSea: 12.56394 },    // AL 20/120mg dispersible, 12 cp × 30 plaquettes
-  7: { price: 14, landedSea: 17.0772 },       // AL 20/120mg, 18 cp × 30 plaquettes
-  8: { price: 15.72, landedSea: 19.175256 },  // AL 20/120mg, 24 cp × 30 plaquettes
-  9: { price: 1.33, landedSea: 1.622334 },    // Artésunate 60mg injectable, flacon
-  10: { price: 0.7, landedSea: 0.85386 },     // Artésunate 100mg suppositoire, boîte de 2
-  11: { price: 1.81, landedSea: 2.28763366 }, // MILDA standard 190×180×170 cm
-  12: { price: 2.08, landedSea: 2.62888288 }, // MILDA PBO 190×180×170 cm
-  13: { price: 2.81, landedSea: 3.55151966 }, // MILDA double principe actif 190×180×170 cm
+// Coût livré maritime (TLC) : fichier « Malaria_MOU_27-Niger.xlsx », onglet Commodity
+// calculator, colonne F, pour les références retenues par le Niger. En conservant les
+// pourcentages de transport de référence (REFERENCE_PARAMS : sea, air) :
+//   prix EXW = livré maritime ÷ (1 + % maritime) ; livré avion = EXW × (1 + % aérien).
+const MOU27_LANDED_SEA = {
+  1: 16.028172,   // SP 25/500mg, plaquette de 3 cp, boîte de 50 plaquettes
+  2: 14.527818,   // AQ + SP 76.5mg + 12.5/250mg, boîte de 50 co-blisters
+  3: 17.0772,     // AQ + SP 153mg + 25/500mg, boîte de 50 co-blisters
+  4: 10.747648,   // TDR Pf/Pv, kit de 25 tests
+  5: 7.3188,      // AL 20/120mg dispersible, 6 cp × 30 plaquettes
+  6: 12.56394,    // AL 20/120mg dispersible, 12 cp × 30 plaquettes
+  7: 17.0772,     // AL 20/120mg, 18 cp × 30 plaquettes
+  8: 19.175256,   // AL 20/120mg, 24 cp × 30 plaquettes
+  9: 1.622334,    // Artésunate 60mg injectable, flacon
+  10: 0.85386,    // Artésunate 100mg suppositoire, boîte de 2
+  11: 2.28763366, // MILDA standard 190×180×170 cm
+  12: 2.62888288, // MILDA PBO 190×180×170 cm
+  13: 3.55151966, // MILDA double principe actif 190×180×170 cm
 };
 const DEFAULT_PARAMS = Object.fromEntries(Object.entries(REFERENCE_PARAMS).map(([id, p]) => {
-  const c = MOU27_COSTS[id];
-  return [id, { price: c.price, landedSea: c.landedSea, landedAir: round4(c.price * (1 + n0(p.air) / 100)), qty26: n0(p.qty26) }];
+  const landedSea = MOU27_LANDED_SEA[id];
+  const price = round4(landedSea / (1 + n0(p.sea) / 100));
+  return [id, { price, landedSea, landedAir: round4(price * (1 + n0(p.air) / 100)), qty26: n0(p.qty26) }];
 }));
 /** Coûts de référence (MOU 27) : prix EXW et coûts livrés, sans les quantités. */
 export const referenceCosts = () => Object.fromEntries(Object.entries(DEFAULT_PARAMS).map(([id, p]) =>

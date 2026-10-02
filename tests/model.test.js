@@ -209,10 +209,14 @@ test('années fiscales : FY2027 = 1er octobre 2026 – 30 septembre 2027', () =>
 
 test('coûts livrés : taux implicite et split PSN', () => {
   const d = defaultScenarioData();
-  close(freightRate(d.commodities[10], 'air'), 174, 1e-3);
+  close(freightRate(d.commodities[10], 'air'), 174, 0.01);
+  close(freightRate(d.commodities[1], 'sea'), 50, 0.01);
   d.quantification['2027'][1] = 100; d.quantification['2027'][4] = 300;
-  close(psnSplit(d, '2027')[1], 1314 / (1314 + 2400));
-  // coûts de référence MOU 27 (fichier Niger) : EXW et coût livré maritime
-  close(d.commodities[4].price, 8); close(d.commodities[4].landedSea, 10.747648);
+  const v1 = 100 * d.commodities[1].price; const v4 = 300 * d.commodities[4].price;
+  close(psnSplit(d, '2027')[1], v1 / (v1 + v4));
+  // coûts de référence MOU 27 : livré maritime (colonne F) ; EXW = livré ÷ 1,5 ; avion = EXW × (1 + % aérien)
+  close(d.commodities[4].landedSea, 10.747648);
+  close(d.commodities[4].price, 10.747648 / 1.5, 1e-4);
+  close(d.commodities[4].landedAir, d.commodities[4].price * 2, 1e-3);
   close(d.commodities[9].landedSea, 1.622334);
 });

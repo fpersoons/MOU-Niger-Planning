@@ -18,7 +18,7 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
     <div className="space-y-3">
       {/* ─── Coûts par intrant ─── */}
       <Section icon={Package} title="Coûts par intrant"
-        subtitle="Coût par unité d’achat, en dollars : prix départ usine (EXW) et coût livré au Niger (landed) selon le mode de transport. Source : fichier MOU 27 Niger (coût livré maritime) ; avion : estimation."
+        subtitle="Coût par unité d’achat, en dollars : prix départ usine (EXW) et coût livré au Niger (landed) selon le mode de transport. Par défaut : coût livré maritime du fichier MOU 27 Niger (Commodity calculator, colonne F) ; prix EXW = livré maritime ÷ 1,5 (fret maritime 50 %) ; livré avion = EXW + fret aérien de référence."
         action={(
           <button type="button" title="Remplacer les coûts par ceux du fichier MOU 27 Niger"
             onClick={() => { if (window.confirm('Rétablir les coûts de référence (MOU 27) ?\nLes prix EXW et coûts livrés saisis seront remplacés.')) updateData((d) => ({ ...d, commodities: Object.fromEntries(Object.entries(d.commodities).map(([id, p]) => [id, { ...p, ...referenceCosts()[id] }])) })); }}

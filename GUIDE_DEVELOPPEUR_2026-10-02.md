@@ -70,10 +70,12 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
 
 ## Coûts de référence
 
-`MOU27_COSTS` (model.js) : prix EXW et coût livré maritime (TLC) du fichier
-« Malaria_MOU_27-Niger.xlsx » (Costing reference sheet), pour les références du
-Commodity calculator ; coût avion = EXW × (1 + taux aérien de référence).
-`referenceCosts()` alimente le bouton « Coûts de référence MOU 27 ».
+`MOU27_LANDED_SEA` (model.js) : coût livré maritime (TLC) du fichier
+« Malaria_MOU_27-Niger.xlsx », onglet Commodity calculator, colonne F, pour les
+références retenues par le Niger. En conservant les pourcentages de référence
+(`REFERENCE_PARAMS.sea` = 50 %, `.air` par produit) : EXW = livré ÷ (1 + % mer),
+livré avion = EXW × (1 + % air). `referenceCosts()` alimente le bouton
+« Coûts de référence MOU 27 ».
 
 ## Excel
 
