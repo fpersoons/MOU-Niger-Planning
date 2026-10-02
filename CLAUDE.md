@@ -4,7 +4,7 @@
 Preset couleurs : CHEMONICS
 
 - Cahier des charges fonctionnel : `docs/Specifications_Developpement_Application.md` (règles de calcul §3, parsing §5, export §6).
-- Écarts assumés au cahier des charges, imposés par le design system : icônes SVG maison (pas de `lucide-react`), en-tête blanc et palette Chemonics (pas de bleu `#000066` dans l'UI — il reste utilisé dans l'export Excel), pas de Firebase (JSON en `localStorage` + import/export JSON), ExcelJS/SheetJS en dépendances npm chargées à la demande (pas de CDN).
+- Écarts assumés au cahier des charges, imposés par le design system : icônes SVG maison (pas de `lucide-react`), en-tête blanc et palette Chemonics (pas de bleu `#000066`, ni dans l'UI ni dans l'export Excel, qui reprend la palette de l'application), pas de Firebase (JSON en `localStorage` + import/export JSON), ExcelJS/SheetJS en dépendances npm chargées à la demande (pas de CDN).
 - Spécificités Niger (au-delà du cahier des charges) : réserve d'assistance par exercice déduite du budget, quantification Niger, méthodes FY27-30 `quantif` (automatique : tout le budget selon le split PSN) / `manual` (quantités maximales ajustées à la main) — pas de split FY25 ; coûts par intrant saisis en $ (EXW, livré bateau + route, livré avion).
 - Interface en 3 onglets (Budget, Paramètres logistiques, Scénarios), légère et utilisable par des non-spécialistes : langage courant, une section à la fois.
 - Pas de délais d'acheminement ni de lexique (simplification demandée) ; transport par avion par défaut pour l'année à venir (FY2027). Coûts de référence : livré maritime du fichier MOU 27 Niger (`MOU27_LANDED_SEA`), EXW et avion déduits des pourcentages de référence.

@@ -34,8 +34,9 @@ années suivantes du MOU.
   (onglet Commodity calculator, colonne F) ; le prix EXW en est déduit en retirant
   le fret maritime (50 %), et le coût avion est calculé à partir du prix EXW avec le
   pourcentage de fret aérien de référence de chaque produit. Le bouton « Coûts de référence MOU 27 » rétablit ces valeurs.
-- **Quantités financées par l'USG — PSN 2027-2031** : saisissez les quantités par
-  intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
+- **Quantités USG — quantification du PSN 2027-2031** : quantités prévues d'être
+  couvertes par le Gouvernement américain (USG) dans la quantification du Plan
+  stratégique 2027-2031 (PSN). Saisissez-les par intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
   l'année) se calcule automatiquement ; 2031 est hors MOU (pour information).
 - Les **moustiquaires (MILDA)**, non prévues dans le MOU, sont masquées ; la case
   « Inclure les moustiquaires » les réaffiche si besoin.
@@ -52,14 +53,20 @@ Pour chaque année FY2027-FY2030 :
   est retenu par défaut pour respecter le plan d'approvisionnement ; l'équipe
   choisit ensuite selon les dates du plan.
 - Par produit : split PSN, **quantité commandable** (en unités d'achat) — c'est-à-dire
-  la quantité initialement prévue pour l'USG, **ajustée pour rester dans le budget
-  disponible** —, coût livré, **quantité initialement prévue** et **écart** par rapport
+  la quantité initialement prévue pour l'USG dans la quantification du PSN 2027-2031,
+  **ajustée pour rester dans le budget disponible** —, coût livré, **quantité
+  initialement prévue pour l'USG** et **écart** par rapport
   à cette quantité (−4 % = 4 % de moins que prévu).
 - **Copier pour un e-mail** et **synthèse FY2027-FY2030**.
-- **Exporter Excel** (en-tête) : une feuille « Quantités et coûts » qui donne, par
-  année, la quantité commandable, le prix unitaire livré et le total livré de chaque
-  produit (formules modifiables dans Excel), le total commandé, le budget et le reste ;
-  une feuille « Paramètres » reprend les hypothèses.
+- **Exporter Excel** (en-tête), aux couleurs de l'application :
+  - feuille « Quantités et coûts » : par année, quantité commandable, prix unitaire
+    livré, total livré, quantité prévue pour l'USG (PSN) et écart, puis total commandé,
+    budget, report reçu, réserve, accruals, budget disponible et reste ;
+  - feuille « Paramètres » : les hypothèses, dans des **cellules bleu clair
+    modifiables** (budgets, réserves, accruals, règles de report, mode de transport,
+    méthode, coûts, quantités PSN et manuelles).
+  - **Tout est calculé par formules** : en modifiant une cellule bleu clair, Excel
+    recalcule les quantités, les coûts, les reports et les restes comme l'application.
 
 ## Scénarios enregistrés
 

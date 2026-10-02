@@ -2,7 +2,7 @@
 // Coûts unitaires par intrant (EXW, livré bateau + route, livré avion), quantités
 // financées par l'USG dans le PSN 2027-2031 (d'où le split en %).
 
-import { COMMODITIES, PSN_YEARS, REGULAR, freightRate, num, psnSplit, referenceCosts } from './model.js';
+import { COMMODITIES, PSN_LABEL, PSN_YEARS, REGULAR, freightRate, num, psnSplit, referenceCosts } from './model.js';
 import { Layers, Package, RotateCcw, Truck } from './icons.jsx';
 import { NumInput, fmtNum, fmtUsd } from './ui.jsx';
 import { ModeIcon, Section } from './common.jsx';
@@ -72,8 +72,8 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
       </Section>
 
       {/* ─── PSN 2027-2031 ─── */}
-      <Section icon={Layers} title="Quantités financées par l’USG — PSN 2027-2031"
-        subtitle="Saisissez les quantités par intrant et par année. Le split (part de chaque intrant dans la valeur de l’année) se calcule automatiquement et sert à répartir le budget dans les scénarios.">
+      <Section icon={Layers} title="Quantités USG — quantification du PSN 2027-2031"
+        subtitle={`${PSN_LABEL}. Saisissez-les par intrant et par année. Le split (part de chaque intrant dans la valeur de l’année) se calcule automatiquement et sert à répartir le budget dans les scénarios.`}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-[11px] tabular-nums">
             <thead>
@@ -95,7 +95,7 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
                     </td>
                     {PSN_YEARS.map((y) => (
                       <td key={y} className="px-1.5 py-1 text-right">
-                        <NumInput value={data.quantification[y][c.id]} onChange={(v) => setPsnQty(y, c.id, v)} ariaLabel={`PSN ${c.name} ${y}`} className="w-24" />
+                        <NumInput value={data.quantification[y][c.id]} onChange={(v) => setPsnQty(y, c.id, v)} ariaLabel={`Quantité prévue pour l’USG (PSN) ${c.name} ${y}`} className="w-24" />
                         <span className="block text-[9px] text-chem-gray2">{yearValue(y) > 0 ? `split ${fmtNum(splits[y][c.id] * 100, 1)} %` : ' '}</span>
                       </td>
                     ))}

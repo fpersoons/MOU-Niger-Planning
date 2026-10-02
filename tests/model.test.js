@@ -243,3 +243,22 @@ test('MILDA masquées par défaut : ignorées dans les calculs, sauf si incluses
   // anciens scénarios avec des MILDA saisies : visibles
   assert.equal(normalizeScenarioData({ manualQtys: { 2028: { 11: 500 } } }).includeMilda, true);
 });
+
+test('export Excel : calculs en formules liées à « Paramètres », couleurs de l’application', async () => {
+  const d = withPsn(defaultScenarioData());
+  const wb = await buildWorkbook({ name: 'Formules', data: d });
+  assert.equal(wb.calcProperties.fullCalcOnLoad, true);
+  const ws = wb.getWorksheet('Quantités et coûts');
+  let lines = 0;
+  ws.eachRow((row) => {
+    if (!REGULAR.some((c) => String(row.getCell(1).value).endsWith(`(${c.name})`))) return;
+    lines++;
+    for (const col of [3, 4, 5, 6, 7]) assert.ok(row.getCell(col).formula, `ligne ${row.number}, colonne ${col} : formule attendue`);
+    assert.match(row.getCell(3).formula, /Paramètres/);
+  });
+  assert.equal(lines, REGULAR.length * 4);
+  // Budget, report, réserve, accruals, budget disponible et reste : formules aussi.
+  ws.eachRow((row) => { if (row.getCell(5).value !== null && typeof row.getCell(5).value === 'number') assert.fail(`valeur figée ligne ${row.number}`); });
+  const banner = ws.getRow(6).getCell(1);
+  assert.equal(banner.fill.fgColor.argb, 'FF005D83');
+});

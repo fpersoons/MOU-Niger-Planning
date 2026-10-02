@@ -129,6 +129,10 @@ export const DEFAULT_RESERVES = { 2026: 1800000, 2027: 0, 2028: 0, 2029: 0, 2030
 // (L'ancienne répartition selon le split FY25 a été retirée : les scénarios qui
 // l'utilisaient passent en « quantif ».)
 export const METHODS = ['quantif', 'manual'];
+/** Libellé complet des quantités PSN (à rappeler partout où elles apparaissent). */
+export const PSN_LABEL = 'Quantités prévues d’être couvertes par le Gouvernement américain (USG) dans la quantification du Plan stratégique 2027-2031 (PSN)';
+export const PSN_SHORT = 'Quantité prévue pour l’USG (quantification PSN 2027-2031)';
+
 export const METHOD_LABEL = { quantif: 'Automatique (split PSN)', manual: 'Ajusté manuellement' };
 export const DEFAULT_METHODS = { 2027: 'quantif', 2028: 'quantif', 2029: 'quantif', 2030: 'quantif' };
 

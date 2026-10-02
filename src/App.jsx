@@ -25,7 +25,7 @@ const STORAGE_KEY = 'ghsc-psm-planificateur-paludisme-v1';
 const TAB_KEY = 'ghsc-psm-planificateur-paludisme-onglet'; // onglet affiché, propre au navigateur
 const TABS = [
   { id: 'budget', n: 1, icon: Wallet, label: 'Budget', hint: 'budgets du MOU et clôture FY2026' },
-  { id: 'logistics', n: 2, icon: Package, label: 'Paramètres logistiques', hint: 'coûts par intrant et PSN 2027-2031' },
+  { id: 'logistics', n: 2, icon: Package, label: 'Paramètres logistiques', hint: 'coûts par intrant et quantités prévues pour l’USG (PSN 2027-2031)' },
   { id: 'scenarios', n: 3, icon: ListChecks, label: 'Scénarios', hint: 'quantités à commander FY2027-FY2030' },
 ];
 
@@ -198,7 +198,7 @@ export default function App() {
   const sim = simulationData;
   const tabHint = {
     budget: `solde FY2026 ${fmtUsd(sim.totalBalance, 0)}`,
-    logistics: `PSN saisi : ${FUTURE_YEARS.filter((y) => REGULAR.some((c) => Number(data.quantification[y][c.id]) > 0)).length}/4 années du MOU`,
+    logistics: `Quantités USG (PSN) saisies : ${FUTURE_YEARS.filter((y) => REGULAR.some((c) => Number(data.quantification[y][c.id]) > 0)).length}/4 années du MOU`,
     scenarios: `reste FY2027 ${fmtUsd(sim.years['2027'].balance, 0)}`,
   };
 
