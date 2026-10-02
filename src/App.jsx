@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CARRYOVER_LABEL, CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, defaultScenarioData,
-  newAccrual, normalizeScenarioData, num, quantitiesFor, simulate, splitStatus, zeroedScenarioData,
+  newAccrual, normalizeScenarioData, num, quantitiesFor, simulate, zeroedScenarioData,
 } from './model.js';
 import { exportScenarioXlsx, importWorkbook } from './excel.js';
 import QuantificationCard from './Quantification.jsx';
@@ -136,7 +136,7 @@ export default function App() {
   const setYearQty = (key, year, id, value) =>
     updateData((d) => ({ ...d, [key]: { ...d[key], [year]: { ...d[key][year], [id]: Math.max(0, Math.floor(value)) } } }));
   // Pré-remplit les quantités manuelles d'un exercice (source : quantification brute,
-  // quantification ajustée au budget, split FY25 ou zéro), puis passe en méthode manuelle.
+  // quantification ajustée au budget, quantités actuelles ou zéro), puis passe en méthode manuelle.
   const fillRegularQtys = (year, source) => updateData((d) => {
     const residual = simulate(d).years[year].residual;
     const qtys = source === 'zero' ? Object.fromEntries(REGULAR.map((c) => [c.id, 0]))
@@ -168,12 +168,11 @@ export default function App() {
 
   // ─── Calculs mémoïsés ───
   const simulationData = useMemo(() => simulate(data), [data]);
-  const split = useMemo(() => splitStatus(data.commodities), [data.commodities]);
 
   // ─── Handlers données ───
   const applyImported = (buffer, label) =>
     importWorkbook(buffer, data).then(({ data: imported, found }) => {
-      if (!found) throw new Error('Aucun intrant reconnu : le fichier doit contenir un tableau avec une colonne « Intrant » et les colonnes Split, Prix EXW, Fret Air, Fret Mer, Qté FY26.');
+      if (!found) throw new Error('Aucun intrant reconnu : le fichier doit contenir un tableau avec une colonne « Intrant » et les colonnes Prix EXW, Fret Air, Fret Mer, Qté FY26.');
       addScenario(uniqueName(label), imported);
       setNotice({ kind: 'ok', text: `${found} intrant(s) importé(s) dans le nouveau scénario « ${label} ».` });
     });
@@ -210,7 +209,7 @@ export default function App() {
   };
 
   const handleReset = () => {
-    if (!window.confirm(`Remettre à zéro le scénario « ${scenario.name} » ?\nPrix, taux, splits, quantités et accruals passent à 0 (budgets et logistique conservés).`)) return;
+    if (!window.confirm(`Remettre à zéro le scénario « ${scenario.name} » ?\nPrix, taux, quantités et accruals passent à 0 (budgets et logistique conservés).`)) return;
     updateData((d) => zeroedScenarioData(d));
     setNotice({ kind: 'info', text: 'Scénario remis à zéro. Rechargez un fichier (option A ou B) ou créez un scénario par défaut.' });
   };
@@ -393,15 +392,8 @@ export default function App() {
 
             {/* Configuration des intrants */}
             <Card>
-              <SectionHeader icon={Package} title="Configuration des intrants" subtitle="Split FY25, prix EXW, taux de fret, quantités FY26"
-                help="Le split FY25 répartit la valeur EXW (et non le coût landed) des intrants réguliers en FY27-FY30 ; il est normalisé, mais doit totaliser 100 %. Les taux de fret sont en % du prix EXW. Les MILDA voyagent uniquement par mer : leur taux Air est désactivé et leurs quantités se saisissent directement dans les tableaux annuels." />
-              <div className={`flex items-center gap-2 px-2 py-1.5 mb-2 rounded-xl border-2 ${split.ok ? `${POS.bg} border-chem-green2` : `${NEG.bg} border-chem-orange2`}`}>
-                {split.ok ? <CheckCircle2 w={16} className={POS.icon} /> : <AlertTriangle w={16} className={NEG.icon} />}
-                <div className={`flex-1 ${split.ok ? POS.text : NEG.text}`}>
-                  <p className="text-[10px] font-semibold uppercase">Split FY25 {split.ok ? 'valide' : 'à corriger'}</p>
-                  <p className="text-[9px]">Total : {fmtNum(split.total, 2)} %{split.ok ? '' : ` (écart ${fmtSigned(split.total - 100, 2).replace(' $', ' pt')})`}</p>
-                </div>
-              </div>
+              <SectionHeader icon={Package} title="Configuration des intrants" subtitle="Prix EXW, taux de fret, quantités FY26"
+                help="Les taux de fret sont en % du prix EXW. Les MILDA voyagent uniquement par mer : leur taux Air est désactivé et leurs quantités se saisissent directement dans les tableaux annuels." />
               <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">
                 {COMMODITIES.map((c) => {
                   const p = data.commodities[c.id];
@@ -409,13 +401,7 @@ export default function App() {
                     <div key={c.id} className="p-2 rounded-xl border bg-chem-gray1-5 border-chem-gray1-10">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[10px] font-semibold uppercase truncate" title={c.name}>{c.name}</p>
-                        {c.isMilda
-                          ? <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full bg-white text-chem-darkaqua border border-chem-aqua/40">Mer seule</span>
-                          : (
-                            <label className="flex items-center gap-1 text-[9px] font-semibold uppercase text-chem-gray2">
-                              Split <NumInput value={p.split} onChange={(v) => updateField(c.id, 'split', v)} ariaLabel={`Split FY25 — ${c.name}`} className="w-14" /> %
-                            </label>
-                          )}
+                        {c.isMilda && <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full bg-white text-chem-darkaqua border border-chem-aqua/40">Mer seule</span>}
                       </div>
                       <div className="grid grid-cols-3 gap-1.5 mt-1">
                         <label className="text-[9px] font-semibold uppercase text-chem-gray2">Prix EXW $
@@ -443,7 +429,7 @@ export default function App() {
             {/* Paramètres annuels */}
             <Card>
               <SectionHeader icon={Repeat} title="Paramètres annuels" subtitle="Fret, budget, réserve d’assistance et méthode"
-                help="Mode Air ou Mer : taux de fret appliqués ; en Mer, les MILDA deviennent éligibles (saisie dans le tableau de l’exercice). Budget total : budget brut de l’exercice. Réserve d’assistance : montant réservé à l’assistance technique, à l’entreposage et à la distribution, déduit du budget total. Méthode (FY27-FY30) : Split FY25, Split quantification (répartition selon les quantités demandées par le Niger, réduites au prorata si le budget ne suffit pas ; si le budget dépasse les besoins, la case « Maximiser le budget » répartit aussi le surplus dans les mêmes proportions, sinon les quantités sont plafonnées aux besoins) ou Quantités manuelles (saisie directe dans le tableau de l’exercice)." />
+                help="Mode Air ou Mer : taux de fret appliqués ; en Mer, les MILDA deviennent éligibles (saisie dans le tableau de l’exercice). Budget total : budget disponible du MOU pour l’exercice. Réserve d’assistance : montant réservé à l’assistance technique, à l’entreposage et à la distribution, déduit du budget. Méthode (FY27-FY30) : Quantification PSN (répartition selon les quantités de la quantification PSN, réduites au prorata si le budget ne suffit pas ; la case « Maximiser le budget » répartit aussi l’excédent dans les mêmes proportions, sinon les quantités sont plafonnées) ou Quantités manuelles (saisie directe dans le tableau de l’exercice)." />
               <div className="space-y-1.5">
                 {YEARS.map((y) => {
                   const yr = simulationData.years[y];
@@ -586,9 +572,8 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, accrualHandlers, upda
       {isOpen && manual && (
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-t border-chem-gray1-10 bg-chem-yellow/10">
           <span className="text-[9px] font-semibold uppercase text-chem-gray2 mr-1">Pré-remplir :</span>
-          <button type="button" className={chip} disabled={!hasNeed} onClick={() => fillRegularQtys('need')} title="Copie les quantités demandées par le Niger">Quantification</button>
+          <button type="button" className={chip} disabled={!hasNeed} onClick={() => fillRegularQtys('need')} title="Copie les quantités de la quantification PSN">Quantification PSN</button>
           <button type="button" className={chip} disabled={!hasNeed} onClick={() => fillRegularQtys('quantif')} title="Quantification réduite au prorata pour tenir dans le budget">Quantification ajustée au budget</button>
-          <button type="button" className={chip} onClick={() => fillRegularQtys('split')} title="Quantités calculées selon le split FY25">Split FY25</button>
           <button type="button" className={chip} onClick={() => { if (window.confirm(`Remettre à zéro les quantités FY ${yr.year} ?`)) fillRegularQtys('zero'); }}>Zéro</button>
           <span className={`ml-auto text-[10px] ${r.text}`}>{yr.balance >= 0 ? 'Reste à engager' : 'Dépassement'} : {fmtUsd(Math.abs(yr.balance))}</span>
         </div>
@@ -643,7 +628,7 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, accrualHandlers, upda
                           : manual ? <NumInput value={data.regularQtys[yr.year][l.id]} onChange={(v) => updateRegularQty(l.id, v)} ariaLabel={`Quantité ${l.name} FY ${yr.year}`} className="w-28" />
                           : fmtNum(l.qty)}
                         {l.need > 0 && (
-                          <span className={`block text-[9px] ${l.coverage >= 0.995 ? 'text-chem-darkgreen2' : 'text-chem-gray2'}`} title="Quantification Niger (besoin) et taux de couverture">
+                          <span className={`block text-[9px] ${l.coverage >= 0.995 ? 'text-chem-darkgreen2' : 'text-chem-gray2'}`} title="Quantification PSN et taux de couverture">
                             besoin {fmtNum(l.need)} · {fmtNum(l.coverage * 100, 0)} %
                           </span>
                         )}
@@ -722,8 +707,7 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, accrualHandlers, upda
           {yr.year !== '2026' && yr.residual !== undefined && (
             <p className="px-3 py-1.5 text-[9px] text-chem-gray2 italic bg-chem-gray1-5 border-t border-chem-gray1-10">
               Budget intrants {fmtUsd(yr.available)}{yr.mildaCost ? ` − MILDA ${fmtUsd(yr.mildaCost)}` : ''} = budget résiduel {fmtUsd(yr.residual)}
-              {yr.method === 'split' && <>, réparti selon le split FY25 sur base EXW (EXW total cible {fmtUsd(yr.eTot)}), quantités arrondies à l’unité inférieure.</>}
-              {yr.method === 'quantif' && <>, réparti selon la quantification Niger sur base EXW, {yr.maximize ? 'en utilisant tout le budget, au-delà des besoins si possible' : 'plafonné aux besoins'} (coût landed de la quantification : {fmtUsd(yr.needLanded)}).</>}
+              {yr.method === 'quantif' && <>, réparti selon la quantification PSN sur base EXW, {yr.maximize ? 'en utilisant tout le budget, au-delà des besoins si possible' : 'plafonné aux besoins'} (coût landed de la quantification : {fmtUsd(yr.needLanded)}).</>}
               {yr.method === 'manual' && <> ; quantités des intrants réguliers saisies manuellement.</>}
             </p>
           )}

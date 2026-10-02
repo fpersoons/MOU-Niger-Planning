@@ -16,13 +16,11 @@ import {
 import { Card, MODE_PLAIN, NEG, NumInput, POS, fmtNum, fmtUsd, role } from './ui.jsx';
 
 export const METHOD_PLAIN = {
-  quantif: 'Selon la demande du Niger',
-  split: 'Selon la répartition habituelle (FY25)',
+  quantif: 'Selon la quantification PSN',
   manual: 'Je fixe les quantités',
 };
 const METHOD_HELP = {
-  quantif: 'Le budget est réparti dans les mêmes proportions que les quantités demandées par le Niger (quantification). Si le budget ne suffit pas, chaque produit est réduit du même pourcentage.',
-  split: 'Le budget est réparti selon les parts de chaque produit dans les achats de FY25, en dépensant le maximum possible.',
+  quantif: 'Le budget est réparti dans les mêmes proportions que les quantités de la quantification PSN. Si le budget ne suffit pas, chaque produit est réduit du même pourcentage.',
   manual: 'Vous saisissez vous-même les quantités de chaque produit ; le reste du budget (ou le dépassement) se met à jour en direct.',
 };
 
@@ -93,7 +91,7 @@ const emailText = (scenarioName, yr, a, data) => {
   lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()} — ${deliverySentence(a, yr.mode)}`);
   lines.push('');
   for (const l of yr.lines.filter((x) => x.qty > 0)) {
-    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} unités — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (demande Niger ${fmtNum(l.need)}, couverture ${fmtNum(l.coverage * 100, 0)} %)` : ''}`);
+    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} unités — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (quantification PSN ${fmtNum(l.need)}, couverture ${fmtNum(l.coverage * 100, 0)} %)` : ''}`);
   }
   lines.push('');
   lines.push(`Total estimé (produits + transport) : ${fmtUsd(yr.total, 0)}`);
@@ -291,8 +289,8 @@ export default function Assistant({
       {/* ─── Étape 2 : répartition et transport ─── */}
       <Step n="2" id="etape-repartition" icon={Sliders} title="Répartition du budget et transport"
         subtitle="Pour chaque année, choisissez comment répartir le budget entre les produits, et le mode de transport.">
-        <dl className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
-          {['quantif', 'split', 'manual'].map((m) => (
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+          {['quantif', 'manual'].map((m) => (
             <div key={m} className="rounded-xl border border-chem-gray1-20 p-2">
               <dt className="text-[11px] font-semibold text-chem-darkblue">{METHOD_PLAIN[m]}</dt>
               <dd className="text-[10px] text-chem-gray2 mt-0.5 leading-relaxed">{METHOD_HELP[m]}</dd>
@@ -318,7 +316,7 @@ export default function Assistant({
                     Répartition
                     <select value={yr.method} onChange={(e) => setMethod(y, e.target.value)} aria-label={`Répartition FY${y}`}
                       className="bg-white border border-chem-gray1-20 rounded-md px-1.5 py-1 text-[11px] font-semibold normal-case text-chem-darkblue focus:outline-none focus:border-chem-darkblue">
-                      {['quantif', 'split', 'manual'].map((m) => <option key={m} value={m}>{METHOD_PLAIN[m]}</option>)}
+                      {['quantif', 'manual'].map((m) => <option key={m} value={m}>{METHOD_PLAIN[m]}</option>)}
                     </select>
                   </label>
                   <div className="flex flex-col gap-0.5 text-[9px] font-semibold uppercase text-chem-gray2">
@@ -336,12 +334,12 @@ export default function Assistant({
                 {yr.method === 'quantif' && (
                   <label className="mt-1.5 flex items-center gap-1.5 text-[10px] text-chem-gray1 cursor-pointer">
                     <input type="checkbox" checked={!!data.maximize[y]} onChange={(e) => setMaximize(y, e.target.checked)} className="accent-chem-darkblue w-3.5 h-3.5" />
-                    Si le budget dépasse la demande du Niger, utiliser le reste pour commander davantage (mêmes proportions)
+                    Si le budget dépasse la quantification PSN, utiliser le reste pour commander davantage (mêmes proportions)
                   </label>
                 )}
                 {(yr.method === 'quantif' || yr.method === 'manual') && needEmpty && (
                   <p className={`mt-1.5 text-[10px] ${yr.method === 'quantif' ? NEG.text : 'text-chem-gray2'} flex items-center gap-1`}>
-                    <AlertTriangle w={11} /> La demande du Niger pour FY{y} n’est pas encore saisie (tableau ci-dessous){yr.method === 'quantif' ? ' : aucune quantité ne peut être calculée.' : '.'}
+                    <AlertTriangle w={11} /> La quantification PSN pour FY{y} n’est pas encore saisie (tableau ci-dessous){yr.method === 'quantif' ? ' : aucune quantité ne peut être calculée.' : '.'}
                   </p>
                 )}
                 {yr.mode === 'air' && mildaQty > 0 && (
@@ -361,17 +359,19 @@ export default function Assistant({
         </div>
 
         <div className="mt-3">
-          {/* La clé force l'ouverture du tableau dès qu'une année utilise la demande du Niger. */}
-          <QuantificationCard key={FUTURE_YEARS.some((y) => data.methods[y] !== 'split') ? 'avec-demande' : 'sans-demande'}
-            data={data} sim={sim} onChange={(y, id, v) => setYearQty('quantification', y, id, v)}
-            title="Demande du Niger (quantification)" subtitle="quantités demandées par le pays au gouvernement américain — à saisir si vous choisissez « Selon la demande du Niger »"
-            defaultOpen={FUTURE_YEARS.some((y) => data.methods[y] !== 'split')} />
+          <QuantificationCard data={data} sim={sim} onChange={(y, id, v) => setYearQty('quantification', y, id, v)}
+            subtitle="saisissez les quantités par produit et par année ; le split (part de chaque produit dans le budget) se calcule automatiquement"
+            defaultOpen />
+          <p className="mt-2 text-[11px] text-chem-gray2 flex items-center gap-1.5">
+            Les quantités à commander qui en résultent s’affichent à l’étape 3 :
+            <a href="#etape-quantites" className="font-semibold text-chem-darkblue hover:underline">voir les quantités à commander</a>
+          </p>
         </div>
       </Step>
 
       {/* ─── Étape 3 : quantités à commander ─── */}
       <Step n="3" id="etape-quantites" icon={ListChecks} title="Quantités à commander"
-        subtitle="Résultat à communiquer : quantités par produit, coût estimé livré au Niger (produit + transport) et couverture de la demande.">
+        subtitle="Résultat à communiquer : quantités par produit, coût estimé livré au Niger (produit + transport) et couverture de la quantification PSN.">
         {copied && (
           <p role="status" className={`mb-2 px-2.5 py-1.5 rounded-xl border text-[11px] ${copied === 'error' ? `${NEG.bg} ${NEG.border} ${NEG.text}` : `${POS.bg} ${POS.border} ${POS.text}`}`}>
             {copied === 'error' ? 'Copie impossible dans ce navigateur : utilisez l’export Excel.' : `Texte FY${copied} copié : collez-le dans votre e-mail.`}
@@ -456,12 +456,17 @@ function OrderCard({ yr, a, data, onCopy, onQty, onMildaQty, onAdjust, onFill })
         Avec <strong>{fmtUsd(yr.available, 0)}</strong> disponibles pour les produits, on peut commander pour <strong>{fmtUsd(yr.total, 0)}</strong> (livré au Niger, transport compris).
         <span className="mt-0.5 text-[10px] text-chem-gray2 flex items-start gap-1"><Calendar w={11} className="mt-0.5" /> {deliverySentence(a, yr.mode)}</span>
       </p>
+      {yr.method === 'quantif' && !hasNeed && (
+        <p className={`px-3 py-1.5 text-[11px] ${NEG.text} ${NEG.bg} border-b border-chem-gray1-10 flex items-center gap-1.5`}>
+          <AlertTriangle w={12} /> Aucune quantité calculée : saisissez la quantification PSN de FY{yr.year} à l’étape 2
+          <a href="#etape-repartition" className="font-semibold underline">(aller à l’étape 2)</a>.
+        </p>
+      )}
       {manual ? (
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-chem-yellow/10 border-b border-chem-gray1-10">
           <span className="text-[10px] text-chem-gray2">Partir de :</span>
-          <button type="button" className={chip} disabled={!hasNeed} onClick={() => onFill('need')}>la demande du Niger</button>
-          <button type="button" className={chip} disabled={!hasNeed} onClick={() => onFill('quantif')}>la demande ajustée au budget</button>
-          <button type="button" className={chip} onClick={() => onFill('split')}>la répartition habituelle</button>
+          <button type="button" className={chip} disabled={!hasNeed} onClick={() => onFill('need')}>la quantification PSN</button>
+          <button type="button" className={chip} disabled={!hasNeed} onClick={() => onFill('quantif')}>la quantification ajustée au budget</button>
           <span className="text-[10px] text-chem-gray2">puis modifiez les quantités : le reste du budget se met à jour.</span>
         </div>
       ) : (
@@ -477,7 +482,7 @@ function OrderCard({ yr, a, data, onCopy, onQty, onMildaQty, onAdjust, onFill })
               <th className="px-2 py-1.5 text-left">Produit</th>
               <th className="px-2 py-1.5 text-right">Quantité à commander</th>
               <th className="px-2 py-1.5 text-right">Coût estimé livré</th>
-              <th className="px-2 py-1.5 text-right">Demande du Niger</th>
+              <th className="px-2 py-1.5 text-right">Quantification PSN</th>
               <th className="px-2 py-1.5 text-right">Couverture</th>
             </tr>
           </thead>
@@ -546,9 +551,8 @@ const TERMS = [
   ['Réserve d’assistance', 'Partie du budget réservée à l’assistance technique, à l’entreposage et à la distribution ; elle ne sert pas à acheter des produits.'],
   ['Solde FY2026', 'Budget FY2026 non utilisé au 30 septembre 2026 (après réserve et accruals), reporté sur FY2027 ou lissé sur les autres années du MOU.'],
   ['Accruals', 'Montants engagés au 30 septembre 2026 sur le budget FY2026 (commandes en cours de comptabilisation) ; ils sont déduits avant de calculer le solde.'],
-  ['Demande du Niger (quantification)', 'Quantités que le Niger a calculées pour couvrir ses besoins et qu’il demande au gouvernement américain.'],
-  ['Répartition habituelle (split FY25)', 'Part de chaque produit dans la valeur des achats de FY25, utilisée pour répartir un nouveau budget.'],
-  ['Couverture', 'Quantité commandée ÷ quantité demandée par le Niger. 100 % = la demande est entièrement couverte.'],
+  ['Quantification PSN', 'Quantités de produits établies par la quantification du PSN pour chaque année ; elles servent de base pour répartir le budget entre les produits.'],
+  ['Couverture', 'Quantité commandée ÷ quantité de la quantification PSN. 100 % = la quantification est entièrement couverte.'],
   ['Coût estimé livré (landed)', 'Prix du produit à la sortie d’usine (EXW) + coût du transport jusqu’au Niger.'],
   ['EXW', 'Prix « départ usine » : prix du produit seul, avant transport.'],
   ['Fret', 'Coût du transport, exprimé en pourcentage du prix du produit ; plus élevé par avion que par bateau.'],

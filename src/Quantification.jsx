@@ -1,12 +1,16 @@
-// ─── Quantification Niger : besoins exprimés par le pays, FY27-FY30 ─────────
+// ─── Quantification PSN : quantités de référence par produit, FY27-FY30 ──────
 import { useState } from 'react';
 import { FUTURE_YEARS, REGULAR, num } from './model.js';
 import { ChevronDown, ChevronRight } from './icons.jsx';
 import { NEG, NumInput, POS, fmtNum, fmtUsd } from './ui.jsx';
 
-export default function QuantificationCard({ data, sim, onChange, title = 'Quantification Niger', subtitle = 'quantités demandées au gouvernement américain, FY27-FY30', defaultOpen }) {
+export default function QuantificationCard({ data, sim, onChange, title = 'Quantification PSN', subtitle = 'quantités par produit et par année fiscale, FY27-FY30', defaultOpen }) {
   const [isOpen, setIsOpen] = useState(() => defaultOpen ?? REGULAR.some((c) => FUTURE_YEARS.some((y) => num(data.quantification[y][c.id]) > 0)));
   const td = 'px-1.5 py-1 text-right';
+  // Split de chaque année = part de chaque produit dans la valeur EXW de la quantification.
+  const totals = Object.fromEntries(FUTURE_YEARS.map((y) => [y,
+    REGULAR.reduce((s, c) => s + num(data.quantification[y][c.id]) * num(data.commodities[c.id].price), 0)]));
+  const share = (y, c) => (totals[y] > 0 ? (num(data.quantification[y][c.id]) * num(data.commodities[c.id].price)) / totals[y] : 0);
   return (
     <section className="bg-white rounded-2xl border border-chem-gray1-20 shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 p-3">
@@ -19,7 +23,7 @@ export default function QuantificationCard({ data, sim, onChange, title = 'Quant
       {isOpen && (
         <div className="border-t border-chem-gray1-10 overflow-x-auto">
           <p className="px-3 py-1.5 text-[9px] text-chem-darkblue bg-chem-blue-10 border-b border-chem-blue-20">
-            Ces besoins servent à la méthode « Split quantification » et au pré-remplissage des quantités manuelles ; leur couverture s’affiche dans chaque tableau annuel.
+            Saisissez ici les quantités de la quantification PSN. Le split de chaque produit (sa part dans la valeur totale de l’année) se calcule automatiquement et sert à répartir le budget ; les quantités à commander et leur couverture s’affichent dans chaque tableau annuel.
           </p>
           <table className="w-full min-w-[600px] tabular-nums">
             <thead>
@@ -40,6 +44,9 @@ export default function QuantificationCard({ data, sim, onChange, title = 'Quant
                   {FUTURE_YEARS.map((y) => (
                     <td key={y} className={td}>
                       <NumInput value={data.quantification[y][c.id]} onChange={(v) => onChange(y, c.id, v)} ariaLabel={`Quantification ${c.name} FY ${y}`} className="w-24" />
+                      <span className="block text-[9px] text-chem-gray2" title="Split : part du produit dans la valeur de la quantification de l’année">
+                        {totals[y] > 0 ? `split ${fmtNum(share(y, c) * 100, 1)} %` : '\u00a0'}
+                      </span>
                     </td>
                   ))}
                 </tr>

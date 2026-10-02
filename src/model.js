@@ -35,19 +35,19 @@ export const byId = Object.fromEntries(COMMODITIES.map((c) => [c.id, c]));
 
 // Paramètres éditables par intrant (pourcentages en échelle 0-100).
 const DEFAULT_PARAMS = {
-  1: { split: 4.41, price: 13.79, air: 61.41, sea: 50, qty26: 15000 },
-  2: { split: 8.18, price: 12.0, air: 54.04, sea: 50, qty26: 31959 },
-  3: { split: 33.21, price: 12.64, air: 46.93, sea: 50, qty26: 124442 },
-  4: { split: 10.67, price: 5.0, air: 100, sea: 50, qty26: 0 },
-  5: { split: 3.76, price: 6.3, air: 58.2, sea: 50, qty26: 28000 },
-  6: { split: 7.02, price: 10.8, air: 42.9, sea: 50, qty26: 30480 },
-  7: { split: 4.72, price: 14.7, air: 60, sea: 50, qty26: 15000 },
-  8: { split: 9.12, price: 16.1, air: 51.2, sea: 50, qty26: 26552 },
-  9: { split: 18.72, price: 1.35, air: 109.5, sea: 50, qty26: 650000 },
-  10: { split: 0.19, price: 0.9, air: 174, sea: 50, qty26: 10000 },
-  11: { split: 0, price: 2.0, air: 0, sea: 50, qty26: 0 },
-  12: { split: 0, price: 2.3, air: 0, sea: 50, qty26: 0 },
-  13: { split: 0, price: 3.0, air: 0, sea: 50, qty26: 0 },
+  1: { price: 13.79, air: 61.41, sea: 50, qty26: 15000 },
+  2: { price: 12.0, air: 54.04, sea: 50, qty26: 31959 },
+  3: { price: 12.64, air: 46.93, sea: 50, qty26: 124442 },
+  4: { price: 5.0, air: 100, sea: 50, qty26: 0 },
+  5: { price: 6.3, air: 58.2, sea: 50, qty26: 28000 },
+  6: { price: 10.8, air: 42.9, sea: 50, qty26: 30480 },
+  7: { price: 14.7, air: 60, sea: 50, qty26: 15000 },
+  8: { price: 16.1, air: 51.2, sea: 50, qty26: 26552 },
+  9: { price: 1.35, air: 109.5, sea: 50, qty26: 650000 },
+  10: { price: 0.9, air: 174, sea: 50, qty26: 10000 },
+  11: { price: 2.0, air: 0, sea: 50, qty26: 0 },
+  12: { price: 2.3, air: 0, sea: 50, qty26: 0 },
+  13: { price: 3.0, air: 0, sea: 50, qty26: 0 },
 };
 
 export const DEFAULT_BUDGETS = {
@@ -74,12 +74,14 @@ export const accrualsTotal = (accruals) =>
 export const DEFAULT_RESERVES = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
 
 // Méthode de calcul des quantités des intrants réguliers en FY27-FY30 :
-//  split   — répartition du budget selon le split FY25 (base EXW) ;
-//  quantif — répartition selon la quantification Niger (base EXW), plafonnée aux besoins ;
+//  quantif — répartition selon la quantification PSN (base EXW), plafonnée aux besoins
+//            (ou maximisée : tout le budget, au-delà des besoins) ;
 //  manual  — quantités saisies directement.
-export const METHODS = ['split', 'quantif', 'manual'];
-export const METHOD_LABEL = { split: 'Split FY25', quantif: 'Split quantification', manual: 'Quantités manuelles' };
-export const DEFAULT_METHODS = { 2027: 'split', 2028: 'split', 2029: 'split', 2030: 'split' };
+// (L'ancienne répartition selon le split FY25 a été retirée : les scénarios qui
+// l'utilisaient passent en « quantif ».)
+export const METHODS = ['quantif', 'manual'];
+export const METHOD_LABEL = { quantif: 'Quantification PSN', manual: 'Quantités manuelles' };
+export const DEFAULT_METHODS = { 2027: 'quantif', 2028: 'quantif', 2029: 'quantif', 2030: 'quantif' };
 // Méthode « quantif » : true = tout le budget est réparti selon la quantification,
 // même au-delà des besoins ; false = plafonné aux besoins (défaut).
 export const DEFAULT_MAXIMIZE = { 2027: false, 2028: false, 2029: false, 2030: false };
@@ -125,7 +127,7 @@ export const defaultScenarioData = () => ({
 export const zeroedScenarioData = (data) => ({
   ...data,
   commodities: Object.fromEntries(
-    COMMODITIES.map((c) => [c.id, { split: 0, price: 0, air: 0, sea: 0, qty26: 0 }])
+    COMMODITIES.map((c) => [c.id, { price: 0, air: 0, sea: 0, qty26: 0 }])
   ),
   accruals: { items: (data.accruals?.items || []).map((a) => ({ ...a, amount: 0, freightPct: 0 })) },
   manualQtys: emptyManual(),
@@ -151,7 +153,7 @@ export const normalizeScenarioData = (d = {}) => {
   for (const c of COMMODITIES) commodities[c.id] = { ...def.commodities[c.id], ...(d.commodities?.[c.id] || {}) };
   const nested = (key, years) => Object.fromEntries(years.map((y) => [y, { ...def[key][y], ...(d[key]?.[y] || {}) }]));
   const methods = { ...def.methods, ...(d.methods || {}) };
-  for (const y of FUTURE_YEARS) if (!METHODS.includes(methods[y])) methods[y] = 'split';
+  for (const y of FUTURE_YEARS) if (!METHODS.includes(methods[y])) methods[y] = 'quantif';
   return {
     budgets: { ...def.budgets, ...(d.budgets || {}) },
     reserves: { ...def.reserves, ...(d.reserves || {}) },
@@ -237,16 +239,14 @@ export const quantitiesFor = (data, year, method, residual) => {
   if (method === 'manual') {
     return { eTot: null, qtys: Object.fromEntries(REGULAR.map((c) => [c.id, floorQty(num(data.regularQtys?.[year]?.[c.id]))])) };
   }
-  if (method === 'quantif') {
+  // quantif
+  {
     const need = Object.fromEntries(REGULAR.map((c) => [c.id, floorQty(num(data.quantification?.[year]?.[c.id]))]));
     const values = Object.fromEntries(REGULAR.map((c) => [c.id, need[c.id] * price(c.id)]));
     const tot = REGULAR.reduce((s, c) => s + values[c.id], 0);
     const weights = Object.fromEntries(REGULAR.map((c) => [c.id, tot > 0 ? values[c.id] / tot : 0]));
     return allocate(residual, weights, price, rate, data.maximize?.[year] ? undefined : need);
   }
-  const sTot = REGULAR.reduce((s, c) => s + num(p(c.id).split), 0);
-  const weights = Object.fromEntries(REGULAR.map((c) => [c.id, sTot > 0 ? num(p(c.id).split) / sTot : 0]));
-  return allocate(residual, weights, price, rate);
 };
 
 // ─── Simulation FY26-FY30 (§3) ──────────────────────────────────────────────
@@ -295,10 +295,9 @@ export const simulate = (data) => {
   };
 
   // FY 2027-2030 : budget intrants = budget total − réserve + report lissé.
-  const sTot = REGULAR.reduce((s, c) => s + num(p(c.id).split), 0);
   for (const y of FUTURE_YEARS) {
     const mode = logistics[y];
-    const method = METHODS.includes(methods[y]) ? methods[y] : 'split';
+    const method = METHODS.includes(methods[y]) ? methods[y] : 'quantif';
     const base = num(budgets[y]);
     const reserve = num(reserves[y]);
     const available = base - reserve + carry[y];
@@ -309,7 +308,7 @@ export const simulate = (data) => {
     const regular = REGULAR.map((c) => {
       const l = line(c, qtys[c.id], num(p(c.id).price), rateFor(c.id, mode));
       const need = floorQty(num(quantification?.[y]?.[c.id]));
-      return { ...l, weight: sTot > 0 ? num(p(c.id).split) / sTot : 0, need, coverage: need > 0 ? l.qty / need : null };
+      return { ...l, need, coverage: need > 0 ? l.qty / need : null };
     });
     const needLanded = REGULAR.reduce((s, c) => s + floorQty(num(quantification?.[y]?.[c.id])) * num(p(c.id).price) * (1 + rateFor(c.id, mode) / 100), 0);
     const total = sum(regular, 'landed') + mildaCost;
@@ -321,11 +320,5 @@ export const simulate = (data) => {
       total, balance: available - total,
     };
   }
-  return { years: result, surplus, bonus, carry, carryover, splitTotal: sTot };
-};
-
-/** Somme des splits FY25 des intrants réguliers, et validité (|Σ-100| < 0,1). */
-export const splitStatus = (commodities) => {
-  const total = REGULAR.reduce((s, c) => s + num(commodities[c.id]?.split), 0);
-  return { total, ok: Math.abs(total - 100) < 0.1 };
+  return { years: result, surplus, bonus, carry, carryover };
 };

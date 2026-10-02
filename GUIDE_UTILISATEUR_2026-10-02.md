@@ -54,13 +54,16 @@ changent que les dates, pas les quantités).
 Pour chaque année :
 
 - **Répartition** :
-  - *Selon la demande du Niger* : le budget suit les quantités demandées par le
-    Niger (tableau « Demande du Niger » juste en dessous, à remplir). Si le budget
-    ne suffit pas, chaque produit est réduit du même pourcentage. S'il reste de
+  - *Selon la quantification PSN* (par défaut) : le budget suit les quantités de la
+    quantification PSN, à saisir dans le tableau « Quantification PSN » juste en
+    dessous. Le **split** (part de chaque produit dans la valeur totale de l'année)
+    se calcule automatiquement et s'affiche sous chaque quantité. Si le budget ne
+    suffit pas, chaque produit est réduit du même pourcentage ; s'il reste de
     l'argent, une case permet de l'utiliser pour commander davantage ;
-  - *Selon la répartition habituelle (FY25)* : le budget suit les parts de chaque
-    produit dans les achats de FY25 ;
   - *Je fixe les quantités* : vous saisissez les quantités à l'étape 3.
+
+  Les quantités à commander qui en résultent s'affichent à l'**étape 3** (lien
+  « voir les quantités à commander » sous le tableau).
 - **Transport** : *Avion* ou *Bateau + route*. Sous chaque année, l'outil indique
   l'effet de l'autre choix (date d'arrivée et quantité de produits achetables).
 - **Produits attendus au Niger en** : le mois où les produits doivent être
@@ -75,14 +78,14 @@ Pour chaque année :
 
 Pour chaque année : la liste des produits (nom courant, usage et référence),
 la **quantité à commander**, le **coût estimé livré** (produit + transport, en
-dollars américains), la **demande du Niger** et la **couverture** (pourcentage de
-la demande couvert). Les produits sans quantité sont masqués (lien pour les
+dollars américains), la **quantification PSN** et la **couverture** (pourcentage de
+la quantification couvert). Les produits sans quantité sont masqués (lien pour les
 afficher).
 
 - **Ajuster ces quantités à la main** : reprend les quantités calculées et passe en
   saisie libre ; le reste du budget (ou le dépassement) se met à jour en direct.
-  Les boutons « Partir de… » proposent la demande du Niger, la demande ajustée au
-  budget ou la répartition habituelle.
+  Les boutons « Partir de… » proposent la quantification PSN ou la quantification
+  ajustée au budget.
 - **Copier pour un e-mail** : copie un texte prêt à coller (budget, transport,
   délais, quantités, total, reste).
 - **Exporter le scénario en Excel** : fichier avec une feuille « Quantités à
@@ -100,7 +103,7 @@ transférer, **Export JSON** puis **Import JSON** (en-tête).
 
 ## Vue détaillée (spécialistes)
 
-Prix EXW, taux de fret Air/Mer, split FY25, quantités FY26, accruals, MILDA,
+Prix EXW, taux de fret Air/Mer, quantités FY26, accruals, MILDA,
 import Excel (Google Drive ou fichier local), remise à zéro, et un tableau complet
 par exercice (EXW, fret, landed). L'option A (Google Drive) est souvent bloquée par
 le navigateur : télécharger le fichier depuis Drive puis utiliser l'option B.
