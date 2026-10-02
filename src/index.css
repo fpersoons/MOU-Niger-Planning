@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* Focus clavier visible (n'apparaît qu'à la navigation clavier) */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [role="button"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid #005D83;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Cibles tactiles : uniquement sur écrans tactiles, le desktop garde sa densité */
+@media (pointer: coarse) {
+  button, select, [role="button"] { min-height: 28px; }
+  button:has(> svg:only-child) { min-width: 28px; }
+}

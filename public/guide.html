@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Guide — Planificateur Intrants Paludisme</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --darkblue:#005D83; --blue:#00B7F1; --blue10:#E6F8FE; --blue20:#CCF1FC; --gray1:#333E48; --gray2:#56565A; --line:#D6D8DA; --bg:#F5F7F8; --green1:#D0DD27; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--gray1); font:13px/1.6 Montserrat, system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  header { background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px 16px; display:flex; flex-wrap:wrap; gap:12px 16px; align-items:center; border-bottom:4px solid var(--green1); }
+  header img { height:24px; width:auto; }
+  h1 { font-size:15px; margin:0; font-weight:700; }
+  .sub { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--gray2); font-weight:600; margin:0; }
+  section { background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px 16px; margin-top:12px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--darkblue); margin:0 0 6px; border-bottom:1px solid #EBECED; padding-bottom:4px; }
+  li { margin: 2px 0; }
+  code { background:var(--blue10); border:1px solid var(--blue20); border-radius:6px; padding:0 4px; font-size:12px; }
+  a { color: var(--darkblue); }
+  a:focus-visible { outline:2px solid var(--darkblue); outline-offset:2px; border-radius:6px; }
+  .note { background:var(--blue10); border:1px solid var(--blue20); border-radius:12px; padding:8px 10px; font-size:12px; color:var(--darkblue); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="./assets/logo-state.webp" alt="U.S. Department of State" />
+    <div>
+      <h1>Guide utilisateur — Planificateur Budgétaire Intrants Paludisme FY26-FY30</h1>
+      <p class="sub">GHSC-PSM · MOU Niger Planning</p>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. Principe</h2>
+    <ol>
+      <li><strong>FY2026</strong> : vous saisissez les quantités. Les dépenses (EXW + fret + accruals) sont déduites du budget ; le reste est le <strong>surplus FY26</strong>.</li>
+      <li>Le surplus est divisé par 4 (<strong>report annuel lissé</strong>) et ajouté aux budgets FY27 à FY30.</li>
+      <li><strong>FY2027 à FY2030</strong> : l’outil calcule les quantités. Il retire d’abord le coût des MILDA (exercice en mode Mer), puis répartit le budget restant entre les 10 intrants réguliers selon le <strong>split FY25 appliqué à la valeur EXW</strong>, en utilisant le maximum du budget, fret compris, sans le dépasser.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>2. L’écran</h2>
+    <ul>
+      <li><strong>En-tête</strong> : indicateur de sauvegarde, ce guide, Import / Export JSON, bouton <strong>Exporter Excel</strong> (scénario actif).</li>
+      <li><strong>Gestion des données</strong> : A — fichier de référence Google Drive ; B — fichier Excel local ; C — remise à zéro du scénario.</li>
+      <li><strong>Configuration des intrants</strong> : split FY25 (total 100 % : badge vert, sinon rouge), prix EXW, taux de fret Air et Mer (en % du prix EXW), quantité FY26.</li>
+      <li><strong>Logistique annuelle</strong> : mode Air ou Mer et budget initial de chaque exercice.</li>
+      <li><strong>Tableaux annuels</strong> : cliquer sur l’en-tête pour replier. En FY26, la ligne <em>Accruals</em> permet de modifier l’intitulé, le montant EXW et le taux de fret aérien (au centième près, pour caler le landed sur MFS). En mode Mer, les trois lignes MILDA apparaissent avec un champ de quantité.</li>
+      <li><strong>Colonne de droite</strong> : surplus FY26, report annuel lissé, scénarios. En bas : synthèse pluriannuelle.</li>
+    </ul>
+    <p class="note">Virgule ou point décimal acceptés. Tout est enregistré automatiquement dans ce navigateur (pastille « Sauvegardé »).</p>
+  </section>
+
+  <section>
+    <h2>3. Scénarios</h2>
+    <ul>
+      <li><strong>+</strong> : nouveau scénario aux valeurs par défaut du cahier des charges.</li>
+      <li>Cliquer sur le rond à gauche d’un scénario pour l’activer, sur son nom pour le renommer.</li>
+      <li>Icônes : exporter en Excel, dupliquer, supprimer.</li>
+      <li>Un import Excel (option A ou B) crée toujours un <strong>nouveau</strong> scénario.</li>
+    </ul>
+    <p class="note">Les scénarios restent dans le navigateur utilisé. Pour les sauvegarder ou les retrouver sur un autre ordinateur : <strong>Export JSON</strong>, puis <strong>Import JSON</strong>.</p>
+  </section>
+
+  <section>
+    <h2>4. Export Excel</h2>
+    <p>Fichier <code>GHSC-PSM_Budget_Prospective_MM_JJ_AA_&lt;scénario&gt;.xlsx</code> :</p>
+    <ul>
+      <li>feuille <strong>Simulation</strong> : un tableau par exercice (intrants par catégorie, quantités, EXW, fret, landed), puis budget de base, report lissé, budget disponible, total dépenses et solde final (vert / rouge) ;</li>
+      <li>feuille <strong>Paramètres</strong> : tous les réglages du scénario — ce fichier se recharge tel quel avec l’option B.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. Option A — Google Drive</h2>
+    <p>Google Drive refuse en général la lecture directe depuis une page web (sécurité « CORS »). Dans ce cas, ouvrir le fichier dans Drive, le télécharger (Fichier → Télécharger → .xlsx), puis le charger avec l’option B.</p>
+  </section>
+  <p class="sub" style="text-align:center;margin-top:12px"><a href="./">Retour à l’application</a></p>
+</main>
+</body>
+</html>
