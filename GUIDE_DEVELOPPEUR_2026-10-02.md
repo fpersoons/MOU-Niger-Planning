@@ -10,7 +10,7 @@ React 18 + Vite 5 + Tailwind CSS 3 (preset CHEMONICS), ExcelJS (export) chargé 
 ```
 index.html            page Vite (Montserrat, favicon SVG)
 src/main.jsx          montage React
-src/App.jsx           en-tête, barre des scénarios enregistrés, onglets, import/export
+src/App.jsx           en-tête, barre du scénario (nom, réinitialiser, charger / télécharger), onglets
 src/BudgetView.jsx    onglet 1 : budgets du MOU, réserve, clôture FY2026 (accruals, assistance, report)
 src/LogisticsView.jsx onglet 2 : coûts par intrant (EXW, livré bateau, livré avion), PSN 2027-2031
 src/ScenariosView.jsx onglet 3 : scénarios par année (automatique / ajusté), transport, synthèse
@@ -29,7 +29,7 @@ docs/                 cahier des charges d'origine
 `localStorage['ghsc-psm-planificateur-paludisme-v1']` :
 
 ```json
-{ "version": 1, "activeId": "…", "scenarios": [
+{ "version": 2, "scenario":
   { "id": "…", "name": "…", "updatedAt": "ISO",
     "data": {
       "budgets":     { "2026": 13321800, … },
@@ -44,11 +44,14 @@ docs/                 cahier des charges d'origine
       "manualQtys":  { "2026": { "11": 0, "12": 0, "13": 0 }, … },   // MILDA
       "quantification": { "2027": { "1": 0, …, "10": 0 }, …, "2031": {…} },  // PSN 2027-2031
       "regularQtys":    { "2027": { "1": 0, …, "10": 0 }, … }         // méthode manual
-    } } ] }
+    } } }
 ```
 
-Pourcentages en échelle 0-100. Écriture avec un debounce de 1,5 s. L'export JSON
-reprend la même structure ; `normalizeScenarioData()` complète tout fichier partiel.
+Un seul scénario de travail (pas de liste de scénarios) : « Réinitialiser » revient
+aux valeurs par défaut, « Télécharger / Charger un scénario » échange un fichier .json
+de même structure. Les anciens formats (version 1, `{ activeId, scenarios: [...] }`) sont
+relus : le scénario actif est repris. Écriture avec un debounce de 1,5 s ;
+`normalizeScenarioData()` complète tout fichier partiel.
 
 ## Moteur de calcul (`simulate`)
 

@@ -69,10 +69,16 @@ Pour chaque année FY2027-FY2030 :
   - **Tout est calculé par formules** : en modifiant une cellule bleu clair, Excel
     recalcule les quantités, les coûts, les reports et les restes comme l'application.
 
-## Scénarios enregistrés
+## Enregistrer son scénario
 
-La barre sous l'en-tête permet de choisir le scénario actif, de le renommer, d'en
-créer un nouveau, de le **dupliquer** (pour comparer deux hypothèses, par exemple
-avion et bateau) ou de le supprimer. **Télécharger le scénario** enregistre le
-scénario actif dans un fichier ; **Charger un scénario** le recharge (par exemple sur
-un autre ordinateur).
+L'application s'ouvre avec les valeurs par défaut ; dès qu'on les modifie, on
+construit son scénario, enregistré automatiquement dans le navigateur. La barre sous
+l'en-tête permet de :
+
+- **nommer** le scénario (le nom figure dans l'export Excel et le texte pour e-mail) ;
+- **Réinitialiser** : revenir aux valeurs par défaut ;
+- **Télécharger le scénario** : l'enregistrer dans un fichier, pour le conserver ou le
+  transmettre ;
+- **Charger un scénario** : reprendre un fichier téléchargé (il remplace les valeurs
+  actuelles). Pour comparer deux hypothèses, téléchargez la première, modifiez, puis
+  rechargez-la si besoin.

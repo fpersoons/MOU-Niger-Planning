@@ -2,9 +2,10 @@
 // GHSC-PSM — MOU Niger. Preset couleurs : CHEMONICS (DESIGN_SYSTEM.md).
 // Trois vues : 1. Budget (paramètres budgétaires), 2. Paramètres logistiques
 // (coûts par intrant, PSN 2027-2031), 3. Scénarios (quantités à commander).
-// Données : JSON dans le navigateur (localStorage), plusieurs scénarios enregistrés,
-// sauvegarde automatique ; export Excel par scénario ; téléchargement / chargement d'un
-// scénario (fichier .json, pour le transférer sur un autre poste).
+// Données : un scénario de travail en JSON dans le navigateur (localStorage),
+// sauvegarde automatique ; réinitialisation aux valeurs par défaut ; export Excel ;
+// téléchargement / chargement du scénario (fichier .json, pour le conserver ou le
+// transférer sur un autre poste).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,8 +17,8 @@ import BudgetView from './BudgetView.jsx';
 import LogisticsView from './LogisticsView.jsx';
 import ScenariosView from './ScenariosView.jsx';
 import {
-  AlertTriangle, BookOpen, CheckCircle2, CloudCheck, Copy, Download, FileSpreadsheet, Layers, ListChecks,
-  Package, Plus, ShieldCheck, Trash2, Upload, Wallet,
+  AlertTriangle, BookOpen, CheckCircle2, CloudCheck, Download, FileSpreadsheet, Layers, ListChecks,
+  Package, RotateCcw, ShieldCheck, Upload, Wallet,
 } from './icons.jsx';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -31,21 +32,24 @@ const TABS = [
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
-const newScenario = (name, data = defaultScenarioData()) => ({ id: uid(), name, updatedAt: new Date().toISOString(), data });
+const DEFAULT_NAME = 'Scénario de référence';
+const newScenario = (name = DEFAULT_NAME, data = defaultScenarioData()) => ({ id: uid(), name, updatedAt: new Date().toISOString(), data });
 
-const loadStore = () => {
+/** Scénario d'un fichier ou du stockage : { scenario } ou, anciens formats, { activeId, scenarios: [...] } / { name, data }. */
+const pickScenario = (s) => {
+  const x = s?.scenario?.data ? s.scenario
+    : Array.isArray(s?.scenarios) && s.scenarios.length ? (s.scenarios.find((y) => y.id === s.activeId) || s.scenarios[0])
+    : s?.data ? s : null;
+  return x ? { id: x.id || uid(), name: x.name || DEFAULT_NAME, updatedAt: x.updatedAt || new Date().toISOString(), data: normalizeScenarioData(x.data) } : null;
+};
+
+const loadScenario = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (Array.isArray(s.scenarios) && s.scenarios.length) {
-        const scenarios = s.scenarios.map((x) => ({ ...x, data: normalizeScenarioData(x.data) }));
-        return { activeId: scenarios.some((x) => x.id === s.activeId) ? s.activeId : scenarios[0].id, scenarios };
-      }
-    }
+    const sc = raw && pickScenario(JSON.parse(raw));
+    if (sc) return sc;
   } catch { /* stockage indisponible ou corrompu : on repart des valeurs par défaut */ }
-  const first = newScenario('Scénario de référence');
-  return { activeId: first.id, scenarios: [first] };
+  return newScenario();
 };
 
 const downloadBlob = (blob, name) => {
@@ -76,7 +80,7 @@ const SyncIndicator = ({ status }) => {
 
 // ─── Application ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [store, setStore] = useState(loadStore);
+  const [scenario, setScenario] = useState(loadScenario);
   const [sync, setSync] = useState('saved');
   const [notice, setNotice] = useState(null); // { kind: 'ok' | 'error' | 'info', text }
   const [busy, setBusy] = useState(null);
@@ -86,7 +90,6 @@ export default function App() {
   const jsonRef = useRef(null);
   const firstRender = useRef(true);
 
-  const scenario = store.scenarios.find((s) => s.id === store.activeId) || store.scenarios[0];
   const data = scenario.data;
 
   // ─── Sauvegarde automatique (debounce 1,5 s) ───
@@ -94,11 +97,11 @@ export default function App() {
     if (firstRender.current) { firstRender.current = false; return; }
     setSync('saving');
     const t = setTimeout(() => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, ...store })); setSync('saved'); }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, scenario })); setSync('saved'); }
       catch { setSync('error'); }
     }, 1500);
     return () => clearTimeout(t);
-  }, [store]);
+  }, [scenario]);
 
   useEffect(() => {
     if (!notice) return;
@@ -108,10 +111,7 @@ export default function App() {
 
   // ─── Mutations ───
   const updateData = useCallback((fn) => {
-    setStore((s) => ({
-      ...s,
-      scenarios: s.scenarios.map((x) => (x.id === s.activeId ? { ...x, updatedAt: new Date().toISOString(), data: fn(x.data) } : x)),
-    }));
+    setScenario((x) => ({ ...x, updatedAt: new Date().toISOString(), data: fn(x.data) }));
   }, []);
 
   const updateField = (id, field, value) =>
@@ -133,25 +133,11 @@ export default function App() {
     return { ...d, methods: { ...d.methods, [year]: 'manual' }, regularQtys: { ...d.regularQtys, [year]: qtys } };
   });
 
-  const addScenario = (name, scData) => {
-    const sc = newScenario(name, scData);
-    setStore((s) => ({ activeId: sc.id, scenarios: [...s.scenarios, sc] }));
-    return sc;
-  };
-  const uniqueName = (base) => {
-    const names = new Set(store.scenarios.map((s) => s.name));
-    if (!names.has(base)) return base;
-    let i = 2; while (names.has(`${base} (${i})`)) i++;
-    return `${base} (${i})`;
-  };
-  const renameScenario = (id, name) => setStore((s) => ({ ...s, scenarios: s.scenarios.map((x) => (x.id === id ? { ...x, name } : x)) }));
-  const deleteScenario = (sc) => {
-    if (store.scenarios.length <= 1) return;
-    if (!window.confirm(`Supprimer le scénario « ${sc.name} » ?\nToutes ses données seront perdues.`)) return;
-    setStore((s) => {
-      const scenarios = s.scenarios.filter((x) => x.id !== sc.id);
-      return { activeId: s.activeId === sc.id ? scenarios[0].id : s.activeId, scenarios };
-    });
+  const renameScenario = (name) => setScenario((x) => ({ ...x, name }));
+  const resetScenario = () => {
+    if (!window.confirm('Revenir aux valeurs par défaut ?\nToutes les valeurs saisies seront remplacées. Pour les conserver, téléchargez d’abord le scénario.')) return;
+    setScenario(newScenario());
+    setNotice({ kind: 'ok', text: 'Valeurs par défaut rétablies.' });
   };
 
   // ─── Calculs mémoïsés ───
@@ -166,8 +152,7 @@ export default function App() {
   };
 
   const handleExportJson = () => {
-    // Scénario actif uniquement (le chargement accepte aussi les fichiers à plusieurs scénarios).
-    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), activeId: scenario.id, scenarios: [scenario] }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), scenario }, null, 2)], { type: 'application/json' });
     const slug = scenario.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'scenario';
     downloadBlob(blob, `MOU-Niger_scenario_${slug}_${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -176,18 +161,11 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const parsed = JSON.parse(await file.text());
-      const list = Array.isArray(parsed.scenarios) ? parsed.scenarios : parsed.data ? [parsed] : null;
-      if (!list?.length) throw new Error('aucun scénario trouvé dans le fichier.');
-      const names = new Set(store.scenarios.map((s) => s.name));
-      const added = list.map((x) => {
-        let name = x.name || 'Scénario importé';
-        if (names.has(name)) name = `${name} (import)`;
-        names.add(name);
-        return { id: uid(), name, updatedAt: x.updatedAt || new Date().toISOString(), data: normalizeScenarioData(x.data) };
-      });
-      setStore((s) => ({ activeId: added[0].id, scenarios: [...s.scenarios, ...added] }));
-      setNotice({ kind: 'ok', text: added.length > 1 ? `${added.length} scénarios chargés.` : `Scénario « ${added[0].name} » chargé.` });
+      const sc = pickScenario(JSON.parse(await file.text()));
+      if (!sc) throw new Error('aucun scénario trouvé dans le fichier.');
+      if (!window.confirm(`Charger le scénario « ${sc.name} » ?\nIl remplacera les valeurs actuelles. Pour les conserver, téléchargez d’abord le scénario actuel.`)) return;
+      setScenario(sc);
+      setNotice({ kind: 'ok', text: `Scénario « ${sc.name} » chargé.` });
     } catch (err) {
       setNotice({ kind: 'error', text: `Ce fichier n’est pas un scénario téléchargé depuis l’application (${err instanceof SyntaxError ? 'fichier illisible' : err.message}).` });
     } finally {
@@ -237,22 +215,15 @@ export default function App() {
             <Layers w={12} className="text-chem-darkblue" />
             <label className="flex items-center gap-1.5 text-chem-gray2">
               Scénario
-              <select value={store.activeId} onChange={(e) => setStore((s) => ({ ...s, activeId: e.target.value }))} aria-label="Scénario enregistré"
-                className="bg-white border border-chem-gray1-20 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-chem-gray1 focus:outline-none focus:border-chem-darkblue max-w-[220px]">
-                {store.scenarios.map((sc) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
-              </select>
+              <input value={scenario.name} onChange={(e) => renameScenario(e.target.value)} aria-label="Nom du scénario"
+                className="bg-white border border-chem-gray1-20 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-chem-gray1 focus:outline-none focus:border-chem-darkblue w-52" />
             </label>
-            <input value={scenario.name} onChange={(e) => renameScenario(scenario.id, e.target.value)} aria-label="Renommer le scénario"
-              className="bg-transparent border-b border-dashed border-chem-gray1-40 px-0.5 text-[11px] text-chem-gray1 focus:outline-none focus:border-chem-darkblue w-44" />
             <span className="text-chem-gray2">modifié le {fmtDate(scenario.updatedAt)}</span>
-            <span className="flex items-center gap-1 ml-auto">
-              <button type="button" onClick={() => addScenario(uniqueName('Nouveau scénario'))} className={barBtn} title="Nouveau scénario (valeurs par défaut)"><Plus w={11} /> Nouveau</button>
-              <button type="button" onClick={() => addScenario(uniqueName(`${scenario.name} (copie)`), JSON.parse(JSON.stringify(scenario.data)))} className={barBtn} title="Dupliquer pour comparer"><Copy w={11} /> Dupliquer</button>
-              {store.scenarios.length > 1 && <button type="button" onClick={() => deleteScenario(scenario)} className={barBtn} title="Supprimer ce scénario"><Trash2 w={11} /> Supprimer</button>}
-              <span className="w-px h-4 bg-chem-gray1-20 mx-1" aria-hidden="true" />
+            <span className="flex items-center gap-1 ml-auto flex-wrap">
+              <button type="button" onClick={resetScenario} className={barBtn} title="Revenir aux valeurs par défaut"><RotateCcw w={11} /> Réinitialiser</button>
               <button type="button" onClick={() => jsonRef.current?.click()} className={barBtn} title="Charger un scénario téléchargé précédemment (par exemple depuis un autre ordinateur)"><Upload w={11} /> Charger un scénario</button>
               <input ref={jsonRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImportJson} />
-              <button type="button" onClick={handleExportJson} className={barBtn} title="Télécharger le scénario actif dans un fichier, pour le sauvegarder ou le transférer"><Download w={11} /> Télécharger le scénario</button>
+              <button type="button" onClick={handleExportJson} className={barBtn} title="Télécharger le scénario dans un fichier, pour le conserver ou le transférer"><Download w={11} /> Télécharger le scénario</button>
             </span>
           </div>
         </header>
