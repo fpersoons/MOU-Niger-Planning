@@ -2,8 +2,8 @@
 
 ## Stack
 
-React 18 + Vite 5 + Tailwind CSS 3 (preset CHEMONICS), ExcelJS (export) et SheetJS
-(import) chargés par `import()` dynamique. Pas de backend, pas de Firebase.
+React 18 + Vite 5 + Tailwind CSS 3 (preset CHEMONICS), ExcelJS (export) chargé par
+`import()` dynamique ; SheetJS (`xlsx`) en dépendance de développement (tests). Pas de backend, pas de Firebase.
 
 ## Arborescence
 
@@ -19,7 +19,7 @@ src/ui.jsx            helpers de format et composants de base (Card, NumInput…
 src/icons.jsx         icônes SVG maison (DESIGN_SYSTEM §6)
 src/model.js          constantes, valeurs par défaut, parseVal, simulate() — pur
 src/logistics.js      années fiscales (dates de début et de fin)
-src/excel.js          buildWorkbook / exportScenarioXlsx / importWorkbook
+src/excel.js          buildWorkbook / exportScenarioXlsx (+ parseWorkbookRows : relecture de la feuille Paramètres, utilisée par les tests)
 tests/model.test.js   tests node:test (npm test)
 docs/                 cahier des charges d'origine
 ```
@@ -83,10 +83,7 @@ livré avion = EXW × (1 + % air). `referenceCosts()` alimente le bouton
   transmettre), feuille *Simulation* (Arial 11, en-têtes `#000066` blanc gras centré,
   catégories `#F1F5F9` gras italique fusionnées A-E, `"$"#,##0.00`, `#,##0`,
   solde vert/rouge) et feuille *Paramètres* (pourcentages écrits en fractions Excel).
-- Import : feuille *Paramètres* si elle existe, sinon toutes les feuilles. Repère le
-  tableau des intrants par une colonne « Intrant » (+ Prix), le tableau des
-  exercices par « Exercice », et les lignes « Accruals — … ». Valeurs lues par
-  `parseVal` (heuristique du cahier des charges §5).
+- Pas d'import Excel dans l'interface : les scénarios se transfèrent par « Télécharger / Charger un scénario » (fichier .json). `parseWorkbookRows` relit la feuille *Paramètres* (test d'aller-retour).
 
 ## Écarts au cahier des charges
 

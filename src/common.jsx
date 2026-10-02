@@ -51,7 +51,7 @@ export const emailText = (scenarioName, yr) => {
   lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()}`);
   lines.push('');
   for (const l of yr.lines.filter((x) => x.qty > 0)) {
-    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} × ${l.unit} — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (quantité initiale PSN ${fmtNum(l.need)}, soit ${fmtNum(l.coverage * 100, 0)} % couvert par le budget)` : ''}`);
+    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} × ${l.unit} — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (prévu ${fmtNum(l.need)}, écart ${Math.round((l.coverage - 1) * 100) > 0 ? '+' : ''}${Math.round((l.coverage - 1) * 100)} %)` : ''}`);
   }
   lines.push('');
   lines.push(`Total estimé (produits + transport) : ${fmtUsd(yr.total, 0)}`);

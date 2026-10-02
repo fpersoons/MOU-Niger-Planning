@@ -52,17 +52,15 @@ Pour chaque année FY2027-FY2030 :
   est retenu par défaut pour respecter le plan d'approvisionnement ; l'équipe
   choisit ensuite selon les dates du plan.
 - Par produit : split PSN, **quantité commandable** (en unités d'achat) — c'est-à-dire
-  la quantité initiale prévue au PSN pour l'USG, **ajustée pour rester dans le budget
-  disponible** —, coût livré, **quantité initiale du PSN** et **% du PSN couvert par
-  le budget** (part des quantités initialement planifiées que le budget permet
-  d'acheter).
+  la quantité initialement prévue pour l'USG, **ajustée pour rester dans le budget
+  disponible** —, coût livré, **quantité initialement prévue** et **écart** par rapport
+  à cette quantité (−4 % = 4 % de moins que prévu).
 - **Copier pour un e-mail**, **synthèse FY2027-FY2030** et **Exporter en Excel**.
 
 ## Scénarios enregistrés
 
 La barre sous l'en-tête permet de choisir le scénario actif, de le renommer, d'en
 créer un nouveau, de le **dupliquer** (pour comparer deux hypothèses, par exemple
-avion et bateau) ou de le supprimer. **Importer Excel** crée un scénario à partir
-d'un fichier Excel exporté par l'application. **Télécharger le scénario** enregistre le
+avion et bateau) ou de le supprimer. **Télécharger le scénario** enregistre le
 scénario actif dans un fichier ; **Charger un scénario** le recharge (par exemple sur
 un autre ordinateur).

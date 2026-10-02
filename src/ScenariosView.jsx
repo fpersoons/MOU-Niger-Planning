@@ -97,13 +97,13 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-chem-yellow/10 border-b border-chem-gray1-10">
           <span className="text-[10px] text-chem-gray2">Modifiez les quantités ci-dessous ; le reste du budget se met à jour.</span>
           <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('quantif')}><RotateCcw w={10} /> Repartir des quantités maximales selon le budget</button>
-          <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('need')}>Reprendre les quantités initiales du PSN</button>
+          <button type="button" className={chip} disabled={!hasPsn} onClick={() => onFill('need')}>Reprendre les quantités initialement prévues</button>
         </div>
       )}
 
       <p className="px-3 py-1.5 text-[10px] text-chem-darkblue bg-chem-blue-10 border-b border-chem-blue-20">
-        Les <strong>quantités commandables</strong> sont les quantités initialement prévues au PSN pour l’USG, <strong>ajustées pour rester dans le budget disponible</strong> de FY{yr.year}.
-        Le pourcentage indique la part des quantités initiales du PSN que ce budget permet de couvrir.
+        Les <strong>quantités commandables</strong> sont les quantités initialement prévues pour l’USG, <strong>ajustées pour rester dans le budget disponible</strong> de FY{yr.year}.
+        L’écart indique la réduction (ou l’augmentation) par rapport à ce qui était prévu : −4 % signifie 4 % de moins que prévu.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-[11px] tabular-nums">
@@ -113,8 +113,8 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
               <th className="px-2 py-1.5 text-right">Split PSN</th>
               <th className="px-2 py-1.5 text-right">Quantité commandable<span className="block normal-case font-normal">ajustée au budget disponible</span></th>
               <th className="px-2 py-1.5 text-right">Coût livré</th>
-              <th className="px-2 py-1.5 text-right">Quantité initiale PSN {yr.year}<span className="block normal-case font-normal">prévue pour l’USG</span></th>
-              <th className="px-2 py-1.5 text-right">% du PSN couvert<span className="block normal-case font-normal">par le budget disponible</span></th>
+              <th className="px-2 py-1.5 text-right">Quantité initialement prévue<span className="block normal-case font-normal">pour l’USG ({yr.year})</span></th>
+              <th className="px-2 py-1.5 text-right">Écart<span className="block normal-case font-normal">vs quantité prévue</span></th>
             </tr>
           </thead>
           <tbody>
@@ -135,14 +135,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
                 <td className="px-2 py-1 text-right">{fmtUsd(l.landed, 0)}</td>
                 <td className="px-2 py-1 text-right text-chem-gray2">{l.need > 0 ? fmtNum(l.need) : '—'}</td>
                 <td className="px-2 py-1 text-right">
-                  {l.need > 0 ? (
-                    <span className={`inline-flex items-center gap-1 ${l.coverage >= 0.995 ? POS.text : 'text-chem-gray1'}`}>
-                      <span className="inline-block w-10 h-1.5 rounded-full bg-chem-gray1-10 overflow-hidden" aria-hidden="true">
-                        <span className={`block h-full ${l.coverage >= 0.995 ? 'bg-chem-green2' : 'bg-chem-blue'}`} style={{ width: `${Math.min(100, l.coverage * 100)}%` }} />
-                      </span>
-                      {fmtNum(l.coverage * 100, 0)} %
-                    </span>
-                  ) : '—'}
+                  {l.need > 0 ? <Gap value={l.coverage - 1} /> : '—'}
                 </td>
               </tr>
             ))}
@@ -174,6 +167,16 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
       </div>
     </section>
   );
+}
+
+// Écart par rapport à la quantité prévue : −4 % (réduction), +12 % (augmentation), 0 %.
+const fmtGap = (g) => {
+  const pct = Math.round(g * 100);
+  return pct === 0 ? '0 %' : `${pct > 0 ? '+' : '−'}${fmtNum(Math.abs(pct), 0)} %`;
+};
+function Gap({ value }) {
+  const pct = Math.round(value * 100);
+  return <span className={pct < 0 ? NEG.text : pct > 0 ? POS.text : 'text-chem-gray1'}>{fmtGap(value)}</span>;
 }
 
 // ─── Synthèse FY2027-FY2030 ──────────────────────────────────────────────────

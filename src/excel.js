@@ -15,6 +15,7 @@ const METHOD_PLAIN = { quantif: 'Automatique (split PSN)', manual: 'Ajusté manu
 const FONT = { size: 11, name: 'Arial' };
 const MONEY = '"$"#,##0.00';
 const QTY = '#,##0';
+const GAP = '+0%;-0%;0%'; // écart signé par rapport à la quantité prévue
 const PCT = '0.00%'; // valeurs écrites en fraction (4,41 % -> 0.0441), relues par parseVal
 const pct = (v) => (v === null || v === undefined ? null : (Number(v) || 0) / 100);
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000066' } };
@@ -61,11 +62,11 @@ const writeCategory = (ws, label) => {
 
 const writeLine = (ws, l) => {
   const hasNeed = l.need !== undefined && l.need > 0;
-  const row = ws.addRow([l.name, l.qty, l.exw, l.freight, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage : null]);
+  const row = ws.addRow([l.name, l.qty, l.exw, l.freight, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage - 1 : null]);
   row.getCell(2).numFmt = QTY;
   [3, 4, 5].forEach((c) => (row.getCell(c).numFmt = MONEY));
   row.getCell(6).numFmt = QTY;
-  row.getCell(7).numFmt = '0.0%';
+  row.getCell(7).numFmt = GAP;
   styleRow(row, 1, COLS);
   return row;
 };
@@ -93,7 +94,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   // ─── Feuille 0 : quantités à commander (langage courant, à transmettre) ───
   const wo = wb.addWorksheet('Quantités à commander', { views: [{ showGridLines: false }] });
   wo.columns = [{ width: 46 }, { width: 40 }, { width: 18 }, { width: 22 }, { width: 18 }, { width: 13 }];
-  const ot = wo.addRow(['MOU Niger — Quantités commandables FY2027-FY2030 (quantités initiales du PSN pour l\'USG, ajustées au budget disponible)']);
+  const ot = wo.addRow(['MOU Niger — Quantités commandables FY2027-FY2030 (quantités initialement prévues pour l\'USG, ajustées au budget disponible)']);
   ot.getCell(1).font = { ...FONT, bold: true };
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
@@ -105,13 +106,13 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]}`]);
     wo.mergeCells(title.number, 1, title.number, 6);
     title.getCell(1).font = { ...FONT, bold: true };
-    const hdr = wo.addRow(['Produit', 'Usage', 'Quantité commandable (ajustée au budget disponible)', 'Coût estimé livré ($)', `Quantité initiale PSN ${y} (prévue pour l'USG)`, '% du PSN couvert par le budget']);
+    const hdr = wo.addRow(['Produit', 'Usage', 'Quantité commandable (ajustée au budget disponible)', 'Coût estimé livré ($)', `Quantité initialement prévue pour l'USG (${y})`, 'Écart vs quantité prévue']);
     hdr.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
     for (const l of yr.lines) {
       const hasNeed = l.need > 0;
-      const r = wo.addRow([`${l.plain} (${l.name}) — ${l.unit}`, l.use, l.qty, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage : null]);
+      const r = wo.addRow([`${l.plain} (${l.name}) — ${l.unit}`, l.use, l.qty, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage - 1 : null]);
       r.eachCell({ includeEmpty: true }, (c) => (c.font = FONT));
-      r.getCell(3).numFmt = QTY; r.getCell(4).numFmt = MONEY; r.getCell(5).numFmt = QTY; r.getCell(6).numFmt = '0%';
+      r.getCell(3).numFmt = QTY; r.getCell(4).numFmt = MONEY; r.getCell(5).numFmt = QTY; r.getCell(6).numFmt = GAP;
     }
     for (const [label, value, sign] of [
       ['Budget disponible pour les produits', yr.available],
@@ -145,7 +146,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]} — Méthode : ${method}`]);
     ws.mergeCells(title.number, 1, title.number, COLS);
     title.getCell(1).font = { ...FONT, bold: true };
-    writeHeader(ws, ['Intrant', 'Quantité commandable', 'Total EXW', 'Fret', 'Total Landed', 'Quantité initiale PSN (USG)', '% du PSN couvert']);
+    writeHeader(ws, ['Intrant', 'Quantité commandable', 'Total EXW', 'Fret', 'Total Landed', 'Quantité initialement prévue (USG)', 'Écart vs prévu']);
     for (const cat of CATEGORIES) {
       const lines = yr.lines.filter((l) => l.category === cat);
       if (!lines.length) continue;
@@ -345,15 +346,4 @@ export const parseWorkbookRows = (sheets, base) => {
   if (newAcc) { if (assistValue !== null) data.fy26AssistanceSpent = assistValue; }
   else if (legacyAcc !== null) data.yearAccruals['2026'] = legacyAcc + (assistValue || 0);
   return { data, found };
-};
-
-/** Lit un fichier .xlsx/.xls (ArrayBuffer) et renvoie { data, found }. */
-export const importWorkbook = async (arrayBuffer, base) => {
-  const XLSX = await import('xlsx');
-  const wb = XLSX.read(arrayBuffer, { type: 'array' });
-  // Feuille « Paramètres » (export de l'application) seule si présente, sinon toutes.
-  const params = wb.SheetNames.filter((n) => norm(n) === 'parametres');
-  const names = params.length ? params : wb.SheetNames;
-  const sheets = names.map((n) => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }));
-  return parseWorkbookRows(sheets, base);
 };

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FUTURE_YEARS, REGULAR, defaultScenarioData, normalizeScenarioData, quantitiesFor, simulate,
 } from './model.js';
-import { exportScenarioXlsx, importWorkbook } from './excel.js';
+import { exportScenarioXlsx } from './excel.js';
 import { NEG, POS, fmtDate, fmtUsd } from './ui.jsx';
 import BudgetView from './BudgetView.jsx';
 import LogisticsView from './LogisticsView.jsx';
@@ -83,7 +83,6 @@ export default function App() {
   const [tab, setTabState] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'budget'; } catch { return 'budget'; } });
   const setTab = (t) => { setTabState(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* préférence non conservée */ } window.scrollTo({ top: 0 }); };
   const today = useMemo(() => new Date(), []);
-  const fileRef = useRef(null);
   const jsonRef = useRef(null);
   const firstRender = useRef(true);
 
@@ -159,27 +158,6 @@ export default function App() {
   const simulationData = useMemo(() => simulate(data), [data]);
 
   // ─── Handlers données ───
-  const applyImported = (buffer, label) =>
-    importWorkbook(buffer, data).then(({ data: imported, found }) => {
-      if (!found) throw new Error('Aucun intrant reconnu : le fichier doit contenir un tableau avec une colonne « Intrant » et les colonnes Prix EXW et coûts livrés (ou taux de fret).');
-      addScenario(uniqueName(label), imported);
-      setNotice({ kind: 'ok', text: `${found} intrant(s) importé(s) dans le nouveau scénario « ${label} ».` });
-    });
-
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy('import');
-    try {
-      await applyImported(await file.arrayBuffer(), file.name.replace(/\.(xlsx|xls)$/i, ''));
-    } catch (err) {
-      setNotice({ kind: 'error', text: `Import impossible : ${err.message || 'fichier illisible.'}` });
-    } finally {
-      setBusy(null);
-      if (fileRef.current) fileRef.current.value = ''; // permet de recharger le même fichier
-    }
-  };
-
   const handleExport = async (sc = scenario) => {
     setBusy(`xlsx-${sc.id}`);
     try { await exportScenarioXlsx(sc); }
@@ -272,8 +250,6 @@ export default function App() {
               <button type="button" onClick={() => addScenario(uniqueName(`${scenario.name} (copie)`), JSON.parse(JSON.stringify(scenario.data)))} className={barBtn} title="Dupliquer pour comparer"><Copy w={11} /> Dupliquer</button>
               {store.scenarios.length > 1 && <button type="button" onClick={() => deleteScenario(scenario)} className={barBtn} title="Supprimer ce scénario"><Trash2 w={11} /> Supprimer</button>}
               <span className="w-px h-4 bg-chem-gray1-20 mx-1" aria-hidden="true" />
-              <button type="button" onClick={() => fileRef.current?.click()} className={barBtn} title="Importer un fichier Excel (crée un nouveau scénario)"><Upload w={11} /> Importer Excel</button>
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
               <button type="button" onClick={() => jsonRef.current?.click()} className={barBtn} title="Charger un scénario téléchargé précédemment (par exemple depuis un autre ordinateur)"><Upload w={11} /> Charger un scénario</button>
               <input ref={jsonRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImportJson} />
               <button type="button" onClick={handleExportJson} className={barBtn} title="Télécharger le scénario actif dans un fichier, pour le sauvegarder ou le transférer"><Download w={11} /> Télécharger le scénario</button>
