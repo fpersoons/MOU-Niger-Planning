@@ -137,7 +137,6 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   const acc = [];
   acc.push(
     ['Options — FY2026 dépensé', data.fy26Spending === 'unspent' ? 'Non' : 'Oui'],
-    ['Options — Assistance FY2026 dépensée ($)', data.fy26AssistanceSpent, MONEY],
     ['Options — Inclure les MILDA', data.includeMilda ? 'Oui' : 'Non'],
   );
   for (const [label, value, fmt] of acc) {
@@ -277,7 +276,7 @@ export const parseWorkbookRows = (sheets, base) => {
       }
     }
   }
-  if (newAcc) { if (assistValue !== null) data.fy26AssistanceSpent = assistValue; }
+  if (newAcc) { if (assistValue !== null) data.yearAccruals['2026'] += assistValue; }
   else if (legacyAcc !== null) data.yearAccruals['2026'] = legacyAcc + (assistValue || 0);
   return { data, found };
 };

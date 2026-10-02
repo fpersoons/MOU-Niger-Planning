@@ -14,14 +14,14 @@ septembre) :
 | Colonne | Contenu |
 | --- | --- |
 | Budget MOU | budget disponible dans le cadre du MOU |
-| Réserve assistance | assistance technique, entreposage, distribution ; pour FY2026 : montant **prévu** et montant **dépensé** |
-| Accruals | montants engagés (pour FY2026 : au 30/09/2026) |
+| Réserve assistance | assistance technique, entreposage, distribution ; pour FY2026 : montant prévu, pour information |
+| Accruals | montants engagés, produits et assistance (pour FY2026 : au 30/09/2026) |
 | Report reçu | soldes reportés depuis les années précédentes (calculé) |
 | = Budget produits | budget MOU + report reçu − réserve − accruals (calculé) |
 | Report du solde | *Année suivante*, *Lissé sur les années suivantes* ou *Aucun report* |
 
-Le **solde** d'une année est, pour **FY2026** (clos), budget − accruals − assistance
-dépensée : la part non dépensée de la réserve d'assistance en fait donc partie. Pour les années suivantes, c'est la part du
+Le **solde** d'une année est, pour **FY2026** (clos), budget − accruals,
+les accruals comprenant tout ce qui a été engagé (produits et assistance). Pour les années suivantes, c'est la part du
 budget produits non utilisée dans les scénarios. Il est reporté selon le choix de la
 dernière colonne : en totalité sur l'année suivante, ou à parts égales sur toutes les
 années suivantes du MOU.
