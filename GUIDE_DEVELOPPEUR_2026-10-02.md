@@ -33,10 +33,10 @@ docs/                 cahier des charges d'origine
   { "id": "…", "name": "…", "updatedAt": "ISO",
     "data": {
       "budgets":     { "2026": 13321800, … },
-      "reserves":    { "2026": 0, …, "2030": 0 },            // réserve d'assistance
+      "reserves":    { "2026": 1800000, …, "2030": 800000 },            // réserve d'assistance
       "methods":     { "2027": "quantif" | "manual", … },     // ancien "split" → "quantif"
       "fy26Spending": "unspent" | "planned",                  // FY26 clos : accruals seules / + quantités FY26
-      "yearAccruals": { "2026": 1106690, "2027": 0, … },       // accruals par année
+      "yearAccruals": { "2026": 0, "2027": 0, … },               // accruals par année
       "carryRules":  { "2026": "next" | "smooth" | "none", …, "2029": … },  // report du solde
       "commodities": { "1": { "price": 13.79, "landedSea": 20.685, "landedAir": 22.2584, "qty26": 15000 }, … },  // coûts unitaires $
       // ancien format { price, air (%), sea (%) } converti automatiquement en coûts livrés
@@ -70,12 +70,12 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
 
 ## Coûts de référence
 
-`MOU27_LANDED_SEA` (model.js) : coût livré maritime (TLC) du fichier
-« Malaria_MOU_27-Niger.xlsx », onglet Commodity calculator, colonne F, pour les
-références retenues par le Niger. En conservant les pourcentages de référence
-(`REFERENCE_PARAMS.sea` = 50 %, `.air` par produit) : EXW = livré ÷ (1 + % mer),
-livré avion = EXW × (1 + % air). `referenceCosts()` alimente le bouton
-« Coûts de référence MOU 27 ».
+`DEFAULT_PARAMS` (model.js) : valeurs du scénario de référence validé le 02/10/2026
+(EXW, livré maritime du fichier « Malaria_MOU_27-Niger.xlsx », livré avion = EXW ×
+(1 + % air de référence)). `referenceCosts()` alimente le bouton « Coûts par défaut ».
+`REFERENCE_PARAMS` (taux en %) ne sert plus qu'à convertir les anciens scénarios.
+Les autres valeurs par défaut viennent du même scénario : réserves 1,8 / 1,5 / 1,3 /
+1,0 / 0,8 M$, accruals 0, report FY2026 lissé (puis aucun report), PSN 2027 saisi.
 
 ## Excel
 

@@ -18,12 +18,12 @@ export default function LogisticsView({ data, updateField, setPsnQty, updateData
     <div className="space-y-3">
       {/* ─── Coûts par intrant ─── */}
       <Section icon={Package} title="Coûts par intrant"
-        subtitle="Coût par unité d’achat, en dollars : prix départ usine (EXW) et coût livré au Niger (landed) selon le mode de transport. Par défaut : coût livré maritime du fichier MOU 27 Niger (Commodity calculator, colonne F) ; prix EXW = livré maritime ÷ 1,5 (fret maritime 50 %) ; livré avion = EXW + fret aérien de référence."
+        subtitle="Coût par unité d’achat, en dollars : prix départ usine (EXW) et coût livré au Niger (landed) selon le mode de transport. Valeurs par défaut : scénario de référence du 02/10/2026 (coût livré maritime du fichier MOU 27 Niger ; livré avion = EXW + fret aérien de référence)."
         action={(
-          <button type="button" title="Remplacer les coûts par ceux du fichier MOU 27 Niger"
-            onClick={() => { if (window.confirm('Rétablir les coûts de référence (MOU 27) ?\nLes prix EXW et coûts livrés saisis seront remplacés.')) updateData((d) => ({ ...d, commodities: Object.fromEntries(Object.entries(d.commodities).map(([id, p]) => [id, { ...p, ...referenceCosts()[id] }])) })); }}
+          <button type="button" title="Remplacer les coûts par les valeurs par défaut"
+            onClick={() => { if (window.confirm('Rétablir les coûts par défaut ?\nLes prix EXW et coûts livrés saisis seront remplacés.')) updateData((d) => ({ ...d, commodities: Object.fromEntries(Object.entries(d.commodities).map(([id, p]) => [id, { ...p, ...referenceCosts()[id] }])) })); }}
             className="flex items-center gap-1 px-2 py-1 bg-white border border-chem-blue-20 rounded-xl font-semibold text-[10px] uppercase text-chem-darkblue hover:bg-chem-blue-10 transition-all">
-            <RotateCcw w={11} /> Coûts de référence MOU 27
+            <RotateCcw w={11} /> Coûts par défaut
           </button>
         )}>
         <div className="overflow-x-auto">

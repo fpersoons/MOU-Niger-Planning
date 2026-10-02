@@ -30,10 +30,11 @@ années suivantes du MOU.
 
 - **Coûts par intrant**, en dollars par **unité d'achat** (boîte, kit, flacon,
   moustiquaire) : **prix EXW**, **coût livré bateau + route** et **coût livré
-  avion**. Par défaut, le coût livré maritime vient du fichier *Malaria MOU 27 Niger*
-  (onglet Commodity calculator, colonne F) ; le prix EXW en est déduit en retirant
-  le fret maritime (50 %), et le coût avion est calculé à partir du prix EXW avec le
-  pourcentage de fret aérien de référence de chaque produit. Le bouton « Coûts de référence MOU 27 » rétablit ces valeurs.
+  avion**. Les valeurs par défaut sont celles du scénario de référence du 02/10/2026
+  (coût livré maritime du fichier *Malaria MOU 27 Niger* ; coût avion = prix EXW +
+  fret aérien de référence). Le bouton « Coûts par défaut » les rétablit. Dans les
+  scénarios, les quantités sont calculées avec le coût livré **du mode de transport
+  choisi** pour l'année (avion ou bateau + route).
 - **Quantités USG — quantification du PSN 2027-2031** : quantités prévues d'être
   couvertes par le Gouvernement américain (USG) dans la quantification du Plan
   stratégique 2027-2031 (PSN). Saisissez-les par intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
