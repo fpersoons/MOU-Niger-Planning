@@ -43,11 +43,15 @@ changent que les dates, pas les quantités).
      une ligne ;
    - *Autres commandes FY2026 (hors accruals)* : « Aucune » (par défaut) ou
      « Selon les quantités FY26 de la vue détaillée » ;
-   - l'outil calcule le **solde FY2026** = budget − réserve − accruals (− autres
-     commandes) ;
-   - choisissez le **traitement du solde** : *reporté en totalité sur FY2027*
-     (l'exercice en cours, commencé le 1er octobre 2026) ou *lissé sur les autres
-     années du MOU* (FY2027-FY2030).
+   - saisissez l'**assistance engagée** au 30/09/2026 (assistance technique,
+     entreposage, distribution) sur la réserve FY2026 ;
+   - l'outil calcule deux soldes : **solde produits** = budget − réserve − accruals
+     (− autres commandes) et **solde assistance** = réserve − assistance engagée ;
+   - choisissez le **traitement du solde** (il s'applique aux deux soldes) :
+     *reporté en totalité sur FY2027* (l'exercice en cours, commencé le 1er octobre
+     2026) ou *lissé sur les autres années du MOU* (FY2027-FY2030). Chaque solde reste
+     dans son enveloppe : le solde produits s'ajoute au **budget pour les produits**,
+     le solde assistance à l'**assistance disponible** (dernière colonne du tableau).
 
 ## Étape 2 — Répartition du budget et transport
 

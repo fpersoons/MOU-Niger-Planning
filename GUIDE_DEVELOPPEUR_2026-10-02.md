@@ -38,7 +38,8 @@ docs/                 cahier des charges d'origine
       "methods":     { "2027": "quantif" | "manual", … },     // ancien "split" → "quantif"
       "maximize":    { "2027": false, … },                    // quantif sans plafond
       "fy26Spending": "unspent" | "planned",                  // FY26 clos : accruals seules / + quantités FY26
-      "carryover":   "fy27" | "smooth",                       // report du non-dépensé FY26
+      "carryover":   "fy27" | "smooth",                       // report des soldes FY26
+      "fy26AssistanceSpent": 0,                               // assistance engagée au 30/09/2026
       "leadTimes":   { "air": { "min": 4, "max": 7 }, "sea": { "min": 6, "max": 13 } },  // mois
       "needDates":   { "2027": "2027-01", … },                // produits attendus au Niger
       "commodities": { "1": { "price": 13.79, "air": 61.41, "sea": 50, "qty26": 15000 }, … },
@@ -59,7 +60,10 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
   uniquement en mode Mer ; accruals `EXW × (1 + taux)`.
   Avec `fy26Spending = "unspent"`, seules les accruals sont comptées.
   Surplus = budget − réserve − total ; report `carry[y]` = surplus en FY27 (`fy27`)
-  ou surplus / 4 par année (`smooth`). Les scénarios sans ces champs gardent
+  ou surplus / 4 par année (`smooth`). Solde assistance = réserve FY26 −
+  `fy26AssistanceSpent`, reporté selon la même règle (`assistCarry[y]`) et ajouté à
+  l'assistance disponible (`assistance = réserve + assistCarry`), pas au budget produits.
+  Anciens scénarios sans ce champ : réserve FY26 considérée comme dépensée. Les scénarios sans ces champs gardent
   `planned` + `smooth` (comportement d'origine).
 - FY27-30 : `dispo = budget − réserve + carry[y]` ; `résiduel = dispo − coût landed MILDA`.
   Quantités des intrants réguliers (`quantitiesFor`) selon `methods[y]` :

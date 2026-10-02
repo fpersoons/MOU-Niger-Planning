@@ -114,6 +114,9 @@ export const defaultScenarioData = () => ({
   methods: { ...DEFAULT_METHODS },
   maximize: { ...DEFAULT_MAXIMIZE },
   fy26Spending: 'unspent',
+  // Assistance (AT, entreposage, distribution) engagée au 30/09/2026 sur la réserve FY2026 ;
+  // le reste de la réserve est un solde d'assistance, reporté comme le solde produits.
+  fy26AssistanceSpent: 0,
   carryover: 'fy27',
   leadTimes: JSON.parse(JSON.stringify(DEFAULT_LEAD_TIMES)),
   needDates: { ...DEFAULT_NEED_DATES },
@@ -164,6 +167,8 @@ export const normalizeScenarioData = (d = {}) => {
     // Scénarios antérieurs à ces options : on conserve le comportement d'origine
     // (quantités FY26 dépensées, report lissé ÷ 4) pour ne pas changer leurs résultats.
     fy26Spending: FY26_SPENDING.includes(d.fy26Spending) ? d.fy26Spending : 'planned',
+    // Anciens scénarios : réserve FY2026 considérée comme entièrement dépensée (résultats inchangés).
+    fy26AssistanceSpent: d.fy26AssistanceSpent ?? num(d.reserves?.['2026'] ?? def.reserves['2026']),
     carryover: CARRYOVER.includes(d.carryover) ? d.carryover : 'smooth',
     leadTimes: {
       air: { ...def.leadTimes.air, ...(d.leadTimes?.air || {}) },
@@ -281,12 +286,19 @@ export const simulate = (data) => {
   const available26 = base26 - reserve26;
   const surplus = available26 - total26;
   const carryover = data.carryover === 'fy27' ? 'fy27' : 'smooth';
-  const carry = Object.fromEntries(FUTURE_YEARS.map((y) => [y, carryover === 'fy27' ? (y === '2027' ? surplus : 0) : surplus / 4]));
+  const spread = (amount) => Object.fromEntries(FUTURE_YEARS.map((y) => [y, carryover === 'fy27' ? (y === '2027' ? amount : 0) : amount / 4]));
+  const carry = spread(surplus);
+  // Solde d'assistance FY2026 : réserve − assistance engagée, reporté selon la même règle,
+  // et ajouté à l'enveloppe d'assistance des années suivantes (pas au budget produits).
+  const assistanceSpent26 = num(data.fy26AssistanceSpent);
+  const assistanceBalance = reserve26 - assistanceSpent26;
+  const assistCarry = spread(assistanceBalance);
   const bonus = surplus / 4; // report annuel lissé (règle d'origine), conservé pour compatibilité
 
   const result = {
     2026: {
       year: '2026', mode: mode26, method: 'fy26', unspent: fy26Unspent, base: base26, reserve: reserve26, bonus: 0, available: available26,
+      assistanceSpent: assistanceSpent26, assistanceBalance,
       lines: [...regular26, ...milda26, ...accrualLines], mildaCost: sum(milda26, 'landed'), accrualsLanded,
       totalExw: sum(regular26, 'exw') + sum(milda26, 'exw') + accExw,
       totalFreight: sum(regular26, 'freight') + sum(milda26, 'freight') + accFreight,
@@ -313,12 +325,13 @@ export const simulate = (data) => {
     const needLanded = REGULAR.reduce((s, c) => s + floorQty(num(quantification?.[y]?.[c.id])) * num(p(c.id).price) * (1 + rateFor(c.id, mode) / 100), 0);
     const total = sum(regular, 'landed') + mildaCost;
     result[y] = {
-      year: y, mode, method, maximize: method === 'quantif' && !!data.maximize?.[y], base, reserve, bonus: carry[y], available, residual, eTot, lines: [...regular, ...milda], mildaCost,
+      year: y, mode, method, maximize: method === 'quantif' && !!data.maximize?.[y], base, reserve, bonus: carry[y], available,
+      assistCarry: assistCarry[y], assistance: reserve + assistCarry[y], residual, eTot, lines: [...regular, ...milda], mildaCost,
       needLanded,
       totalExw: sum(regular, 'exw') + sum(milda, 'exw'),
       totalFreight: sum(regular, 'freight') + sum(milda, 'freight'),
       total, balance: available - total,
     };
   }
-  return { years: result, surplus, bonus, carry, carryover };
+  return { years: result, surplus, bonus, carry, carryover, assistanceBalance, assistCarry, totalBalance: surplus + assistanceBalance };
 };

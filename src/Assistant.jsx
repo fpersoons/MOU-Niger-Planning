@@ -88,6 +88,7 @@ const emailText = (scenarioName, yr, a, data) => {
   if (yr.reserve) parts.push(`− réserve assistance ${fmtUsd(yr.reserve, 0)}`);
   if (yr.bonus) parts.push(`${yr.bonus >= 0 ? '+' : '−'} report du solde FY2026 ${fmtUsd(Math.abs(yr.bonus), 0)}`);
   lines.push(`Budget disponible pour les produits : ${fmtUsd(yr.available, 0)} (${parts.join(' ')})`);
+  if (yr.assistance) lines.push(`Assistance disponible (assistance technique, entreposage, distribution) : ${fmtUsd(yr.assistance, 0)}${yr.assistCarry ? ` (réserve ${fmtUsd(yr.reserve, 0)} + report du solde d'assistance FY2026 ${fmtUsd(yr.assistCarry, 0)})` : ''}`);
   lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()} — ${deliverySentence(a, yr.mode)}`);
   lines.push('');
   for (const l of yr.lines.filter((x) => x.qty > 0)) {
@@ -190,8 +191,9 @@ export default function Assistant({
                 <th className="px-2 py-1.5 text-left">Année fiscale</th>
                 <th className="px-2 py-1.5 text-right">Budget disponible (MOU)</th>
                 <th className="px-2 py-1.5 text-right" title="Assistance technique, entreposage, distribution">Réserve assistance<span className="block normal-case font-normal">(assistance technique, entreposage, distribution)</span></th>
-                <th className="px-2 py-1.5 text-right">Report du solde FY2026</th>
+                <th className="px-2 py-1.5 text-right">Report du solde FY2026<span className="block normal-case font-normal">(produits + assistance)</span></th>
                 <th className="px-2 py-1.5 text-right">= Budget pour les produits</th>
+                <th className="px-2 py-1.5 text-right">= Assistance disponible</th>
               </tr>
             </thead>
             <tbody>
@@ -211,14 +213,22 @@ export default function Assistant({
                     <td className="px-2 py-1.5 text-right"><NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget disponible FY${y}`} className="w-32" /></td>
                     <td className="px-2 py-1.5 text-right"><NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel={`Réserve assistance FY${y}`} className="w-32" /></td>
                     {y === '2026' ? (
-                      <td className="px-2 py-1.5 text-right text-[10px] text-chem-gray2" colSpan={2}>
-                        Solde au 30/09/2026 : <span className={`text-[12px] ${role(sim.surplus).text}`}>{fmtUsd(sim.surplus, 0)}</span>
+                      <td className="px-2 py-1.5 text-right text-[10px] text-chem-gray2" colSpan={3}>
+                        Solde au 30/09/2026 : <span className={`text-[12px] ${role(sim.totalBalance).text}`}>{fmtUsd(sim.totalBalance, 0)}</span>
                         <span className="block text-[9px]">voir la clôture ci-dessous</span>
                       </td>
                     ) : (
                       <>
-                        <td className="px-2 py-1.5 text-right text-chem-gray2">{yr.bonus ? `${yr.bonus > 0 ? '+' : '−'} ${fmtUsd(Math.abs(yr.bonus), 0)}` : '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-chem-gray2">
+                          {yr.bonus || yr.assistCarry ? (
+                            <>
+                              {`${yr.bonus + yr.assistCarry >= 0 ? '+' : '−'} ${fmtUsd(Math.abs(yr.bonus + yr.assistCarry), 0)}`}
+                              {yr.assistCarry ? <span className="block text-[9px]">dont assistance {fmtUsd(yr.assistCarry, 0)}</span> : null}
+                            </>
+                          ) : '—'}
+                        </td>
                         <td className={`px-2 py-1.5 text-right text-[13px] ${yr.available < 0 ? NEG.text : 'text-chem-gray1'}`}>{fmtUsd(yr.available, 0)}</td>
+                        <td className="px-2 py-1.5 text-right text-chem-gray2">{fmtUsd(yr.assistance, 0)}</td>
                       </>
                     )}
                   </tr>
@@ -227,8 +237,9 @@ export default function Assistant({
             </tbody>
             <tfoot>
               <tr className="text-[11px]">
-                <td className="px-2 py-1.5 font-semibold uppercase text-chem-gray2" colSpan={4}>Total FY2027-FY2030 disponible pour les produits</td>
+                <td className="px-2 py-1.5 font-semibold uppercase text-chem-gray2" colSpan={4}>Total FY2027-FY2030</td>
                 <td className="px-2 py-1.5 text-right text-[13px]">{fmtUsd(totalAvailable, 0)}</td>
+                <td className="px-2 py-1.5 text-right text-chem-gray2">{fmtUsd(FUTURE_YEARS.reduce((t, y) => t + sim.years[y].assistance, 0), 0)}</td>
               </tr>
             </tfoot>
           </table>
@@ -269,13 +280,32 @@ export default function Assistant({
               options={[{ value: 'unspent', label: 'Aucune' }, { value: 'planned', label: 'Selon les quantités FY26 de la vue détaillée' }]} />
           </div>
 
-          <p className="mt-2 text-[11px] text-chem-gray1 tabular-nums">
-            Budget FY2026 {fmtUsd(y26.base, 0)}
-            {y26.reserve ? ` − réserve ${fmtUsd(y26.reserve, 0)}` : ''}
-            {` − accruals ${fmtUsd(y26.accrualsLanded, 0)}`}
-            {data.fy26Spending === 'planned' ? ` − commandes ${fmtUsd(y26.total - y26.accrualsLanded, 0)}` : ''}
-            {' = '}<span className={`text-[13px] ${role(sim.surplus).text}`}>solde {fmtUsd(sim.surplus, 0)}</span>
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-chem-gray2">Assistance (AT, entreposage, distribution) engagée au 30/09/2026, sur la réserve de {fmtUsd(y26.reserve, 0)} :</span>
+            <NumInput value={data.fy26AssistanceSpent} onChange={(v) => updateData((d) => ({ ...d, fy26AssistanceSpent: Math.max(0, v) }))} ariaLabel="Assistance engagée au 30/09/2026" className="w-32" />
+            <span className="text-[10px] text-chem-gray2">$</span>
+          </div>
+
+          <dl className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] tabular-nums">
+            <div className="rounded-lg bg-white border border-chem-gray1-20 px-2 py-1.5">
+              <dt className="text-[9px] font-semibold uppercase text-chem-gray2">Solde produits</dt>
+              <dd className="text-[10px] text-chem-gray2">
+                {fmtUsd(y26.base - y26.reserve, 0)} (budget − réserve) − accruals {fmtUsd(y26.accrualsLanded, 0)}
+                {data.fy26Spending === 'planned' ? ` − commandes ${fmtUsd(y26.total - y26.accrualsLanded, 0)}` : ''}
+              </dd>
+              <dd className={`text-[13px] ${role(sim.surplus).text}`}>{fmtUsd(sim.surplus, 0)}</dd>
+            </div>
+            <div className="rounded-lg bg-white border border-chem-gray1-20 px-2 py-1.5">
+              <dt className="text-[9px] font-semibold uppercase text-chem-gray2">Solde assistance</dt>
+              <dd className="text-[10px] text-chem-gray2">réserve {fmtUsd(y26.reserve, 0)} − engagé {fmtUsd(y26.assistanceSpent, 0)}</dd>
+              <dd className={`text-[13px] ${role(sim.assistanceBalance).text}`}>{fmtUsd(sim.assistanceBalance, 0)}</dd>
+            </div>
+            <div className="rounded-lg bg-white border border-chem-gray1-20 px-2 py-1.5">
+              <dt className="text-[9px] font-semibold uppercase text-chem-gray2">Solde total FY2026 à reporter</dt>
+              <dd className="text-[10px] text-chem-gray2">chaque solde reste dans son enveloppe</dd>
+              <dd className={`text-[15px] ${role(sim.totalBalance).text}`}>{fmtUsd(sim.totalBalance, 0)}</dd>
+            </div>
+          </dl>
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
             <span className="text-chem-gray2">Traitement du solde FY2026 :</span>

@@ -249,19 +249,20 @@ export default function App() {
     }
   };
 
-  const { surplus } = simulationData;
+  const { surplus, totalBalance, assistanceBalance } = simulationData;
   const carry27 = simulationData.carry['2027'];
 
   const sidePanel = (
     <>
-      <div className={`p-4 rounded-[1.5rem] border shadow-lg ${role(surplus).bg} ${role(surplus).border}`}>
-        <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(surplus).text} flex items-center gap-1`}><TrendingUp w={12} /> Solde FY2026 au 30/09</p>
-        <p className={`text-3xl font-normal tracking-tight ${role(surplus).text} mt-1 break-words`}>{fmtSigned(surplus, 0)}</p>
-        <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − réserve − accruals{data.fy26Spending === 'unspent' ? '' : ' − commandes FY26'}</p>
+      <div className={`p-4 rounded-[1.5rem] border shadow-lg ${role(totalBalance).bg} ${role(totalBalance).border}`}>
+        <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(totalBalance).text} flex items-center gap-1`}><TrendingUp w={12} /> Solde FY2026 au 30/09</p>
+        <p className={`text-3xl font-normal tracking-tight ${role(totalBalance).text} mt-1 break-words`}>{fmtSigned(totalBalance, 0)}</p>
+        <p className="text-[9px] text-chem-gray2 mt-1">Produits {fmtUsd(surplus, 0)} (budget − réserve − accruals{data.fy26Spending === 'unspent' ? '' : ' − commandes FY26'}) · assistance {fmtUsd(assistanceBalance, 0)} (réserve − engagé)</p>
       </div>
       <Card>
         <p className="text-[10px] font-semibold uppercase tracking-tighter text-chem-gray2 flex items-center gap-1"><Layers w={12} className="text-chem-blue" /> Report du FY2026</p>
-        <p className={`text-base font-normal mt-1 ${role(carry27).text}`}>{fmtSigned(carry27, 0)} <span className="text-[10px] text-chem-gray2">sur FY2027</span></p>
+        <p className={`text-base font-normal mt-1 ${role(carry27).text}`}>{fmtSigned(carry27 + simulationData.assistCarry['2027'], 0)} <span className="text-[10px] text-chem-gray2">sur FY2027</span></p>
+        {simulationData.assistCarry['2027'] ? <p className="text-[9px] text-chem-gray2">dont assistance {fmtUsd(simulationData.assistCarry['2027'], 0)}</p> : null}
         <p className="text-[9px] text-chem-gray2">{CARRYOVER_LABEL[simulationData.carryover]}</p>
       </Card>
       <ScenarioList store={store} busy={busy}
@@ -479,6 +480,9 @@ export default function App() {
                               <option value="unspent">Accruals seules</option>
                               <option value="planned">+ quantités FY26</option>
                             </select>
+                          </label>
+                          <label className="text-[9px] font-semibold uppercase text-chem-gray2 col-span-2">Assistance engagée au 30/09 $
+                            <NumInput value={data.fy26AssistanceSpent} onChange={(v) => updateData((d) => ({ ...d, fy26AssistanceSpent: Math.max(0, v) }))} ariaLabel="Assistance engagée au 30/09/2026" className="w-full block mt-0.5" />
                           </label>
                           <label className="text-[9px] font-semibold uppercase text-chem-gray2">Solde FY26
                             <select value={data.carryover} onChange={(e) => updateData((d) => ({ ...d, carryover: e.target.value }))} aria-label="Report du surplus FY2026"

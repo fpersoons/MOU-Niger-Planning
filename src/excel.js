@@ -97,7 +97,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   ot.getCell(1).font = { ...FONT, bold: true };
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
-    `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accrualsLanded).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde ${Math.round(sim.surplus).toLocaleString('fr-FR')} $, reporté ${lowerFirst(CARRYOVER_LABEL[sim.carryover])}.`,
+    `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accrualsLanded).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde produits ${Math.round(sim.surplus).toLocaleString('fr-FR')} $ et solde assistance ${Math.round(sim.assistanceBalance).toLocaleString('fr-FR')} $, reportés ${lowerFirst(CARRYOVER_LABEL[sim.carryover])}.`,
     `Délais estimés de la commande à l'arrivée au Niger : avion ${data.leadTimes.air.min}-${data.leadTimes.air.max} mois ; bateau + route via Lomé (Togo - Burkina Faso - Niger, frontière Bénin fermée) ${data.leadTimes.sea.min}-${data.leadTimes.sea.max} mois. Hypothèses à confirmer avec GHSC-PSM.`,
   ]) { const r = wo.addRow([txt]); r.getCell(1).font = FONT; }
   wo.addRow([]);
@@ -162,11 +162,13 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     }
     writeTotal(ws, 'Budget de base', yr.base);
     if (yr.reserve) writeTotal(ws, 'Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
-    if (y !== '2026') writeTotal(ws, `Report FY2026 (${lowerFirst(CARRYOVER_LABEL[sim.carryover])})`, yr.bonus);
+    if (y !== '2026') writeTotal(ws, `Report du solde produits FY2026 (${lowerFirst(CARRYOVER_LABEL[sim.carryover])})`, yr.bonus);
     writeTotal(ws, 'Budget disponible pour les intrants', yr.available, { bold: true });
     if (yr.needLanded) writeTotal(ws, 'Coût landed de la quantification (pour mémoire)', yr.needLanded);
     writeTotal(ws, 'Total dépenses', yr.total, { bold: true });
     writeTotal(ws, 'Solde final (reste)', yr.balance, { bold: true, sign: true });
+    if (y === '2026') writeTotal(ws, `Solde assistance FY2026 (réserve − assistance engagée ${Math.round(yr.assistanceSpent).toLocaleString('fr-FR')} $), reporté`, yr.assistanceBalance);
+    else if (yr.assistCarry || yr.reserve) writeTotal(ws, 'Pour mémoire : assistance disponible (réserve + report du solde assistance FY2026)', yr.assistance);
     ws.addRow([]);
   }
 
@@ -215,6 +217,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   acc.push(
     ['Options — FY2026 dépensé', data.fy26Spending === 'unspent' ? 'Non' : 'Oui'],
     ['Options — Report du surplus FY2026', CARRYOVER_LABEL[data.carryover]],
+    ['Options — Assistance engagée au 30/09/2026 ($)', data.fy26AssistanceSpent, MONEY],
     ['Délais — Avion min (mois)', data.leadTimes.air.min],
     ['Délais — Avion max (mois)', data.leadTimes.air.max],
     ['Délais — Bateau min (mois)', data.leadTimes.sea.min],
@@ -323,7 +326,8 @@ export const parseWorkbookRows = (sheets, base) => {
       // Options et délais
       if (first.startsWith('options')) {
         const v = norm(header[1]);
-        if (first.includes('report')) data.carryover = v.includes('lisse') || v.endsWith('4') ? 'smooth' : 'fy27';
+        if (first.includes('assistance')) data.fy26AssistanceSpent = parseVal(header[1]);
+        else if (first.includes('report')) data.carryover = v.includes('lisse') || v.endsWith('4') ? 'smooth' : 'fy27';
         else if (first.includes('depense')) data.fy26Spending = v === 'non' ? 'unspent' : 'planned';
       }
       if (first.startsWith('delais')) {

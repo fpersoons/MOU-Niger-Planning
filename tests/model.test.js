@@ -97,6 +97,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.fy26Spending = 'planned';
   d.leadTimes.sea.max = 15;
   d.needDates['2029'] = '2029-03';
+  d.fy26AssistanceSpent = 123456;
   d.regularQtys['2030'][9] = 777;
   const wb = await buildWorkbook({ name: 'Test', data: d });
   const buf = await wb.xlsx.writeBuffer();
@@ -126,6 +127,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.equal(data.fy26Spending, 'planned');
   assert.equal(data.leadTimes.sea.max, 15);
   assert.equal(data.needDates['2029'], '2029-03');
+  assert.equal(data.fy26AssistanceSpent, 123456);
   assert.equal(data.regularQtys['2030'][9], 777);
 });
 
@@ -254,4 +256,23 @@ test('accruals : plusieurs lignes, et reprise de l’ancien format à ligne uniq
   assert.equal(sim.years['2026'].lines.filter((l) => l.isAccrual).length, 2);
   const old = normalizeScenarioData({ accruals: { amount: 5000, desc: 'Ancien', refs: 'R', freightPct: 1 } });
   assert.deepEqual(old.accruals.items.map((a) => [a.desc, a.amount, a.freightPct]), [['Ancien', 5000, 1]]);
+});
+
+test('solde d’assistance FY2026 reporté comme le solde produits, enveloppe séparée', () => {
+  const d = defaultScenarioData();
+  d.reserves['2026'] = 1600000;
+  d.fy26AssistanceSpent = 400000;
+  d.reserves['2027'] = 1000000;
+  let sim = simulate(d);
+  close(sim.assistanceBalance, 1200000);
+  close(sim.surplus, 13321800 - 1600000 - 1106690);
+  close(sim.years['2027'].assistance, 1000000 + 1200000);
+  close(sim.years['2027'].available, d.budgets['2027'] - 1000000 + sim.surplus);
+  close(sim.totalBalance, sim.surplus + 1200000);
+  d.carryover = 'smooth';
+  sim = simulate(d);
+  close(sim.years['2029'].assistCarry, 300000);
+  // anciens scénarios : réserve FY26 considérée comme dépensée
+  const old = defaultScenarioData(); delete old.fy26AssistanceSpent; old.reserves['2026'] = 500000;
+  assert.equal(normalizeScenarioData(old).fy26AssistanceSpent, 500000);
 });
