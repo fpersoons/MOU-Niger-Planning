@@ -60,9 +60,9 @@ export const NumInput = ({ value, onChange, className = '', disabled, ariaLabel 
       value={shown}
       onFocus={(e) => {
         const el = e.target;
-        setDraft(empty ? '' : String(value).replace('.', ','));
-        // Le passage au format brut fait perdre la sélection : on resélectionne tout,
-        // pour qu'une frappe remplace la valeur au lieu de s'y ajouter.
+        // On garde le texte affiché tel quel (num() ignore les espaces des milliers) pour
+        // ne pas perdre la sélection, puis on sélectionne tout : une frappe remplace la valeur.
+        setDraft(shown);
         requestAnimationFrame(() => { if (document.activeElement === el) el.select(); });
       }}
       onChange={(e) => { setDraft(e.target.value); onChange(num(e.target.value)); }}

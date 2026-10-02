@@ -4,13 +4,13 @@
 
 import {
   CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
-  CARRYOVER_LABEL, newAccrual, normalizeScenarioData, parseVal, simulate,
+  CARRYOVER_LABEL, PSN_YEARS, newAccrual, normalizeScenarioData, parseVal, simulate,
 } from './model.js';
 import { STATUS_LABEL, assessDelivery, fmtDay, fmtMonth } from './logistics.js';
 
 const MODE_PLAIN = { air: 'Avion', sea: 'Bateau + route via Lomé' };
 const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
-const METHOD_PLAIN = { quantif: 'Selon la quantification PSN', manual: 'Quantités fixées à la main' };
+const METHOD_PLAIN = { quantif: 'Automatique (split PSN)', manual: 'Ajusté manuellement' };
 
 const FONT = { size: 11, name: 'Arial' };
 const MONEY = '"$"#,##0.00';
@@ -104,7 +104,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   for (const y of FUTURE_YEARS) {
     const yr = sim.years[y];
     const a = assessDelivery({ year: y, mode: yr.mode, leadTimes: data.leadTimes, needMonth: data.needDates[y], today });
-    const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]}${yr.maximize ? ' (budget maximisé)' : ''} — ${STATUS_LABEL[a.status]}`]);
+    const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]} — ${STATUS_LABEL[a.status]}`]);
     wo.mergeCells(title.number, 1, title.number, 6);
     title.getCell(1).font = { ...FONT, bold: true };
     const when = a.status === 'ok'
@@ -149,7 +149,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
 
   for (const y of YEARS) {
     const yr = sim.years[y];
-    const method = y === '2026' ? 'Quantités FY26 saisies' : `${METHOD_LABEL[yr.method]}${yr.maximize ? ' (budget maximisé)' : ''}`;
+    const method = y === '2026' ? 'Quantités FY26 saisies' : `${METHOD_LABEL[yr.method]}`;
     const title = ws.addRow([`FY ${y} — Logistique : ${MODE_LABEL[yr.mode]} — Méthode : ${method}`]);
     ws.mergeCells(title.number, 1, title.number, COLS);
     title.getCell(1).font = { ...FONT, bold: true };
@@ -175,31 +175,31 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   // ─── Feuille 2 : paramètres (relisible par l'import, Option B) ───
   const wp = wb.addWorksheet('Paramètres', { views: [{ showGridLines: false }] });
   wp.columns = [{ width: 44 }, { width: 34 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }];
-  const h1 = wp.addRow(['Intrant', 'Catégorie', 'Prix EXW ($)', 'Fret Air (%)', 'Fret Mer (%)', 'Qté FY26']);
+  const h1 = wp.addRow(['Intrant', 'Catégorie', 'Prix EXW ($)', 'Coût livré bateau + route ($)', 'Coût livré avion ($)', 'Qté FY26']);
   h1.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
   for (const c of COMMODITIES) {
     const p = data.commodities[c.id];
-    const row = wp.addRow([c.name, c.category, p.price, c.isMilda ? null : pct(p.air), pct(p.sea), c.isMilda ? null : p.qty26]);
-    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = PCT; row.getCell(5).numFmt = PCT; row.getCell(6).numFmt = QTY;
+    const row = wp.addRow([c.name, c.category, p.price, p.landedSea, c.isMilda ? null : p.landedAir, c.isMilda ? null : p.qty26]);
+    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = '"$"#,##0.0000'; row.getCell(5).numFmt = '"$"#,##0.0000'; row.getCell(6).numFmt = QTY;
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   wp.addRow([]);
-  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Méthode', 'Maximiser le budget', ...MILDA.map((m) => `Qté ${m.name}`)]);
+  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Méthode', ...MILDA.map((m) => `Qté ${m.name}`)]);
   h2.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
   for (const y of YEARS) {
     const row = wp.addRow([`FY${y}`, MODE_LABEL[data.logistics[y]], data.budgets[y], Number(data.reserves[y]) || 0,
-      y === '2026' ? '—' : METHOD_LABEL[data.methods[y]], y === '2026' ? '—' : data.maximize[y] ? 'Oui' : 'Non',
+      y === '2026' ? '—' : METHOD_LABEL[data.methods[y]],
       ...MILDA.map((m) => Number(data.manualQtys[y][m.id]) || 0)]);
-    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; [7, 8, 9].forEach((i) => (row.getCell(i).numFmt = QTY));
+    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; [6, 7, 8].forEach((i) => (row.getCell(i).numFmt = QTY));
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   // Quantification PSN et quantités manuelles (FY27-FY30)
-  for (const [label, key] of [['Quantification PSN', 'quantification'], ['Quantités manuelles', 'regularQtys']]) {
+  for (const [label, key, years] of [['Quantification PSN', 'quantification', PSN_YEARS], ['Quantités manuelles', 'regularQtys', FUTURE_YEARS]]) {
     wp.addRow([]);
-    const h = wp.addRow([label, ...FUTURE_YEARS.map((y) => `FY${y}`)]);
+    const h = wp.addRow([label, ...years.map((y) => `${key === 'quantification' ? '' : 'FY'}${y}`)]);
     h.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
     for (const c of REGULAR) {
-      const row = wp.addRow([c.name, ...FUTURE_YEARS.map((y) => Number(data[key][y][c.id]) || 0)]);
+      const row = wp.addRow([c.name, ...years.map((y) => Number(data[key][y][c.id]) || 0)]);
       row.eachCell({ includeEmpty: true }, (cell, i) => { cell.font = FONT; if (i > 1) cell.numFmt = QTY; });
     }
   }
@@ -272,8 +272,10 @@ export const parseWorkbookRows = (sheets, base) => {
       if (header.some((h) => ['intrant', 'commodity', 'produit', 'item'].includes(norm(h)))) {
         const cName = header.findIndex((h) => ['intrant', 'commodity', 'produit', 'item'].includes(norm(h)));
         const cPrice = findCol(header, [(h) => h.includes('prix'), (h) => h.includes('price'), (h) => h === 'exw' || h.startsWith('exw')]);
-        const cAir = findCol(header, [(h) => h.includes('air')]);
-        const cSea = findCol(header, [(h) => h.includes('mer'), (h) => h.includes('sea')]);
+        const cAir = findCol(header, [(h) => h.includes('air'), (h) => h.includes('avion')]);
+        const cSea = findCol(header, [(h) => h.includes('mer'), (h) => h.includes('sea'), (h) => h.includes('bateau')]);
+        // Coûts livrés unitaires ($) ou, dans les anciens fichiers, taux de fret (%).
+        const asLanded = (k) => k >= 0 && /landed|livre|cout/.test(norm(header[k])) && !/fret/.test(norm(header[k]));
         const cQty = findCol(header, [(h) => h.includes('qte'), (h) => h.includes('qty'), (h) => h.includes('quantite')]);
         if (cPrice < 0) continue; // ex. tableaux de simulation : ignorés
         for (let j = i + 1; j < rows.length; j++) {
@@ -283,8 +285,12 @@ export const parseWorkbookRows = (sheets, base) => {
           const p = data.commodities[id];
           const c = byId[id];
           if (cPrice >= 0 && r[cPrice] !== undefined && r[cPrice] !== null) p.price = parseVal(r[cPrice]);
-          if (cAir >= 0 && !c.isMilda && r[cAir] !== undefined && r[cAir] !== null) p.air = parseVal(r[cAir], true);
-          if (cSea >= 0 && r[cSea] !== undefined && r[cSea] !== null) p.sea = parseVal(r[cSea], true);
+          const setLanded = (k, field) => {
+            if (k < 0 || r[k] === undefined || r[k] === null || r[k] === '') return;
+            p[field] = asLanded(k) ? parseVal(r[k]) : Math.round(p.price * (1 + parseVal(r[k], true) / 100) * 10000) / 10000;
+          };
+          if (!c.isMilda) setLanded(cAir, 'landedAir');
+          setLanded(cSea, 'landedSea');
           if (cQty >= 0 && !c.isMilda && r[cQty] !== undefined && r[cQty] !== null) p.qty26 = parseVal(r[cQty]);
           found++;
         }
@@ -295,7 +301,6 @@ export const parseWorkbookRows = (sheets, base) => {
         const cBudget = findCol(header, [(h) => h.includes('budget')]);
         const cReserve = findCol(header, [(h) => h.includes('reserve')]);
         const cMethod = findCol(header, [(h) => h.includes('methode') || h.includes('method')]);
-        const cMax = findCol(header, [(h) => h.includes('maximis') || h.includes('maximiz')]);
         const cMilda = MILDA.map((m) => header.findIndex((h) => norm(h).includes(norm(m.name))));
         for (let j = i + 1; j < rows.length; j++) {
           const r = rows[j] || [];
@@ -305,22 +310,23 @@ export const parseWorkbookRows = (sheets, base) => {
           if (cBudget >= 0 && r[cBudget] !== undefined && r[cBudget] !== null && r[cBudget] !== '') data.budgets[y] = parseVal(r[cBudget]);
           if (cReserve >= 0 && r[cReserve] !== undefined && r[cReserve] !== null && r[cReserve] !== '') data.reserves[y] = parseVal(r[cReserve]);
           if (cMethod >= 0 && y !== '2026') {
-            const m = METHODS.find((k) => norm(METHOD_LABEL[k]) === norm(r[cMethod]));
+            const v = norm(r[cMethod]);
+            const m = METHODS.find((k) => norm(METHOD_LABEL[k]) === v) || (/manuel/.test(v) ? 'manual' : /quantif|split|psn/.test(v) ? 'quantif' : null);
             if (m) data.methods[y] = m;
           }
-          if (cMax >= 0 && y !== '2026' && r[cMax] !== null && r[cMax] !== undefined) data.maximize[y] = /^(oui|yes|true|1|x)$/i.test(String(r[cMax]).trim());
           MILDA.forEach((m, k) => { if (cMilda[k] >= 0) data.manualQtys[y][m.id] = Math.max(0, Math.floor(parseVal(r[cMilda[k]]))); });
         }
       }
       // Quantification PSN (ou « Quantification Niger », anciens fichiers) / quantités manuelles
       if (first === 'quantificationpsn' || first === 'quantificationniger' || first === 'quantitesmanuelles') {
         const key = first === 'quantitesmanuelles' ? 'regularQtys' : 'quantification';
-        const cols = FUTURE_YEARS.map((y) => header.findIndex((h) => String(h ?? '').includes(y)));
+        const years = key === 'quantification' ? PSN_YEARS : FUTURE_YEARS;
+        const cols = years.map((y) => header.findIndex((h) => String(h ?? '').includes(y)));
         for (let j = i + 1; j < rows.length; j++) {
           const r = rows[j] || [];
           const id = NAME_INDEX[norm(r[0])];
           if (!id) break;
-          FUTURE_YEARS.forEach((y, k) => { if (cols[k] >= 0) data[key][y][id] = Math.max(0, Math.floor(parseVal(r[cols[k]]))); });
+          years.forEach((y, k) => { if (cols[k] >= 0) data[key][y][id] = Math.max(0, Math.floor(parseVal(r[cols[k]]))); });
         }
       }
       // Options et délais

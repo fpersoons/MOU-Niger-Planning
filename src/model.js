@@ -4,6 +4,8 @@
 
 export const YEARS = ['2026', '2027', '2028', '2029', '2030'];
 export const FUTURE_YEARS = ['2027', '2028', '2029', '2030'];
+// Années du PSN (quantités financées par l'USG) : 2027-2031 ; le MOU couvre FY2027-FY2030.
+export const PSN_YEARS = ['2027', '2028', '2029', '2030', '2031'];
 
 export const CATEGORIES = [
   'Prevention Commodity Procurement',
@@ -33,8 +35,9 @@ export const REGULAR = COMMODITIES.filter((c) => !c.isMilda);
 export const MILDA = COMMODITIES.filter((c) => c.isMilda);
 export const byId = Object.fromEntries(COMMODITIES.map((c) => [c.id, c]));
 
-// Paramètres éditables par intrant (pourcentages en échelle 0-100).
-const DEFAULT_PARAMS = {
+// Valeurs de référence (cahier des charges) : prix EXW et taux de fret en % ; les
+// coûts livrés unitaires (landed) en sont déduits : landed = EXW × (1 + taux).
+const REFERENCE_PARAMS = {
   1: { price: 13.79, air: 61.41, sea: 50, qty26: 15000 },
   2: { price: 12.0, air: 54.04, sea: 50, qty26: 31959 },
   3: { price: 12.64, air: 46.93, sea: 50, qty26: 124442 },
@@ -48,6 +51,24 @@ const DEFAULT_PARAMS = {
   11: { price: 2.0, air: 0, sea: 50, qty26: 0 },
   12: { price: 2.3, air: 0, sea: 50, qty26: 0 },
   13: { price: 3.0, air: 0, sea: 50, qty26: 0 },
+};
+const round4 = (x) => Math.round(x * 10000) / 10000;
+const n0 = (v) => Number(v) || 0; // (défini ici : utilisé au chargement du module)
+const toLanded = (p) => ({
+  price: n0(p.price),
+  landedSea: round4(n0(p.price) * (1 + n0(p.sea) / 100)),
+  landedAir: round4(n0(p.price) * (1 + n0(p.air) / 100)),
+  qty26: n0(p.qty26),
+});
+// Paramètres éditables par intrant : prix EXW, coût livré unitaire bateau + route
+// (landedSea) et avion (landedAir), quantité FY26.
+const DEFAULT_PARAMS = Object.fromEntries(Object.entries(REFERENCE_PARAMS).map(([id, p]) => [id, toLanded(p)]));
+
+/** Taux de fret implicite (%) d'un intrant pour un mode : landed / EXW − 1. */
+export const freightRate = (p, mode) => {
+  const price = num(p?.price);
+  const landed = num(mode === 'air' ? p?.landedAir : p?.landedSea);
+  return price > 0 ? (landed / price - 1) * 100 : 0;
 };
 
 export const DEFAULT_BUDGETS = {
@@ -74,17 +95,13 @@ export const accrualsTotal = (accruals) =>
 export const DEFAULT_RESERVES = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
 
 // Méthode de calcul des quantités des intrants réguliers en FY27-FY30 :
-//  quantif — répartition selon la quantification PSN (base EXW), plafonnée aux besoins
-//            (ou maximisée : tout le budget, au-delà des besoins) ;
+//  quantif — tout le budget réparti selon le split PSN (base EXW) : quantités maximales ;
 //  manual  — quantités saisies directement.
 // (L'ancienne répartition selon le split FY25 a été retirée : les scénarios qui
 // l'utilisaient passent en « quantif ».)
 export const METHODS = ['quantif', 'manual'];
-export const METHOD_LABEL = { quantif: 'Quantification PSN', manual: 'Quantités manuelles' };
+export const METHOD_LABEL = { quantif: 'Automatique (split PSN)', manual: 'Ajusté manuellement' };
 export const DEFAULT_METHODS = { 2027: 'quantif', 2028: 'quantif', 2029: 'quantif', 2030: 'quantif' };
-// Méthode « quantif » : true = tout le budget est réparti selon la quantification,
-// même au-delà des besoins ; false = plafonné aux besoins (défaut).
-export const DEFAULT_MAXIMIZE = { 2027: false, 2028: false, 2029: false, 2030: false };
 
 // FY2026 (clos le 30/09/2026) : « planned » = les quantités FY26 saisies ont été
 // commandées ; « unspent » = rien n'a été commandé, seules les accruals sont comptées.
@@ -102,8 +119,8 @@ export const DEFAULT_NEED_DATES = { 2027: '2027-01', 2028: '2028-01', 2029: '202
 
 const emptyManual = () =>
   Object.fromEntries(YEARS.map((y) => [y, Object.fromEntries(MILDA.map((m) => [m.id, 0]))]));
-const emptyRegular = () =>
-  Object.fromEntries(FUTURE_YEARS.map((y) => [y, Object.fromEntries(REGULAR.map((c) => [c.id, 0]))]));
+const emptyRegular = (years = FUTURE_YEARS) =>
+  Object.fromEntries(years.map((y) => [y, Object.fromEntries(REGULAR.map((c) => [c.id, 0]))]));
 
 /** Données d'un scénario aux valeurs par défaut du cahier des charges. */
 export const defaultScenarioData = () => ({
@@ -112,7 +129,6 @@ export const defaultScenarioData = () => ({
   commodities: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
   logistics: { ...DEFAULT_LOGISTICS },
   methods: { ...DEFAULT_METHODS },
-  maximize: { ...DEFAULT_MAXIMIZE },
   fy26Spending: 'unspent',
   // Assistance (AT, entreposage, distribution) engagée au 30/09/2026 sur la réserve FY2026 ;
   // le reste de la réserve est un solde d'assistance, reporté comme le solde produits.
@@ -122,7 +138,7 @@ export const defaultScenarioData = () => ({
   needDates: { ...DEFAULT_NEED_DATES },
   accruals: JSON.parse(JSON.stringify(DEFAULT_ACCRUALS)),
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
-  quantification: emptyRegular(),  // besoins exprimés par le Niger, FY27-FY30
+  quantification: emptyRegular(PSN_YEARS),  // quantités financées par l'USG dans le PSN 2027-2031
   regularQtys: emptyRegular(),     // quantités saisies (méthode « manual »), FY27-FY30
 });
 
@@ -130,11 +146,11 @@ export const defaultScenarioData = () => ({
 export const zeroedScenarioData = (data) => ({
   ...data,
   commodities: Object.fromEntries(
-    COMMODITIES.map((c) => [c.id, { price: 0, air: 0, sea: 0, qty26: 0 }])
+    COMMODITIES.map((c) => [c.id, { price: 0, landedSea: 0, landedAir: 0, qty26: 0 }])
   ),
   accruals: { items: (data.accruals?.items || []).map((a) => ({ ...a, amount: 0, freightPct: 0 })) },
   manualQtys: emptyManual(),
-  quantification: emptyRegular(),
+  quantification: emptyRegular(PSN_YEARS),
   regularQtys: emptyRegular(),
 });
 
@@ -153,7 +169,14 @@ const normalizeAccruals = (acc, def) => {
 export const normalizeScenarioData = (d = {}) => {
   const def = defaultScenarioData();
   const commodities = {};
-  for (const c of COMMODITIES) commodities[c.id] = { ...def.commodities[c.id], ...(d.commodities?.[c.id] || {}) };
+  for (const c of COMMODITIES) {
+    const src = d.commodities?.[c.id];
+    // Ancien format (taux de fret en %) : conversion en coûts livrés unitaires.
+    const converted = src && (src.landedSea === undefined || src.landedAir === undefined) && ('sea' in src || 'air' in src)
+      ? { ...toLanded({ ...REFERENCE_PARAMS[c.id], ...src }), ...src } : src;
+    const merged = { ...def.commodities[c.id], ...(converted || {}) };
+    commodities[c.id] = { price: num(merged.price), landedSea: num(merged.landedSea), landedAir: num(merged.landedAir), qty26: num(merged.qty26) };
+  }
   const nested = (key, years) => Object.fromEntries(years.map((y) => [y, { ...def[key][y], ...(d[key]?.[y] || {}) }]));
   const methods = { ...def.methods, ...(d.methods || {}) };
   for (const y of FUTURE_YEARS) if (!METHODS.includes(methods[y])) methods[y] = 'quantif';
@@ -163,7 +186,6 @@ export const normalizeScenarioData = (d = {}) => {
     commodities,
     logistics: { ...def.logistics, ...(d.logistics || {}) },
     methods,
-    maximize: Object.fromEntries(FUTURE_YEARS.map((y) => [y, !!(d.maximize?.[y] ?? def.maximize[y])])),
     // Scénarios antérieurs à ces options : on conserve le comportement d'origine
     // (quantités FY26 dépensées, report lissé ÷ 4) pour ne pas changer leurs résultats.
     fy26Spending: FY26_SPENDING.includes(d.fy26Spending) ? d.fy26Spending : 'planned',
@@ -177,7 +199,7 @@ export const normalizeScenarioData = (d = {}) => {
     needDates: { ...def.needDates, ...(d.needDates || {}) },
     accruals: normalizeAccruals(d.accruals, def.accruals),
     manualQtys: nested('manualQtys', YEARS),
-    quantification: nested('quantification', FUTURE_YEARS),
+    quantification: nested('quantification', PSN_YEARS),
     regularQtys: nested('regularQtys', FUTURE_YEARS),
   };
 };
@@ -218,39 +240,38 @@ const floorQty = (x) => Math.max(0, Math.floor(x + 1e-9));
 /**
  * Répartit un budget landed entre les intrants réguliers selon des poids EXW
  * (w_i normalisés) : E_tot = budget / Σ w_i (1 + r_i), Q_i = ⌊E_tot × w_i / P_i⌋.
- * `cap` (facultatif) plafonne chaque quantité (besoins de la quantification).
  */
-const allocate = (budget, weights, price, rate, cap) => {
+const allocate = (budget, weights, price, rate) => {
   const factor = REGULAR.reduce((s, c) => s + weights[c.id] * (1 + rate(c.id) / 100), 0);
-  let eTot = factor > 0 && budget > 0 ? budget / factor : 0;
-  if (cap) {
-    // E_tot maximal tel qu'aucune quantité ne dépasse son besoin.
-    const limits = REGULAR.filter((c) => weights[c.id] > 0).map((c) => (cap[c.id] * price(c.id)) / weights[c.id]);
-    if (limits.length) eTot = Math.min(eTot, ...limits);
-  }
+  const eTot = factor > 0 && budget > 0 ? budget / factor : 0;
   const qtys = Object.fromEntries(REGULAR.map((c) => {
     const pr = price(c.id);
-    const q = pr > 0 ? floorQty((eTot * weights[c.id]) / pr) : 0;
-    return [c.id, cap ? Math.min(q, floorQty(cap[c.id])) : q];
+    return [c.id, pr > 0 ? floorQty((eTot * weights[c.id]) / pr) : 0];
   }));
   return { eTot, qtys };
+};
+
+/** Split PSN d'une année : part de chaque intrant dans la valeur EXW des quantités PSN. */
+export const psnSplit = (data, year) => {
+  const values = Object.fromEntries(REGULAR.map((c) => [c.id,
+    floorQty(num(data.quantification?.[year]?.[c.id])) * num(data.commodities[c.id]?.price)]));
+  const tot = REGULAR.reduce((s, c) => s + values[c.id], 0);
+  return Object.fromEntries(REGULAR.map((c) => [c.id, tot > 0 ? values[c.id] / tot : 0]));
 };
 
 /** Quantités FY27-30 d'une méthode donnée, pour un budget résiduel (utilisé aussi par les boutons de pré-remplissage). */
 export const quantitiesFor = (data, year, method, residual) => {
   const p = (id) => data.commodities[id] || {};
   const price = (id) => num(p(id).price);
-  const rate = (id) => num(data.logistics[year] === 'air' ? p(id).air : p(id).sea);
+  const rate = (id) => freightRate(p(id), data.logistics[year]);
   if (method === 'manual') {
     return { eTot: null, qtys: Object.fromEntries(REGULAR.map((c) => [c.id, floorQty(num(data.regularQtys?.[year]?.[c.id]))])) };
   }
   // quantif
   {
-    const need = Object.fromEntries(REGULAR.map((c) => [c.id, floorQty(num(data.quantification?.[year]?.[c.id]))]));
-    const values = Object.fromEntries(REGULAR.map((c) => [c.id, need[c.id] * price(c.id)]));
-    const tot = REGULAR.reduce((s, c) => s + values[c.id], 0);
-    const weights = Object.fromEntries(REGULAR.map((c) => [c.id, tot > 0 ? values[c.id] / tot : 0]));
-    return allocate(residual, weights, price, rate, data.maximize?.[year] ? undefined : need);
+    const weights = psnSplit(data, year);
+    // Tout le budget est réparti selon le split PSN (quantités maximales achetables).
+    return allocate(residual, weights, price, rate);
   }
 };
 
@@ -259,10 +280,10 @@ export const simulate = (data) => {
   const { budgets, reserves = {}, commodities, logistics, accruals, manualQtys, methods = {}, quantification = {} } = data;
   const fy26Unspent = data.fy26Spending === 'unspent';
   const p = (id) => commodities[id] || {};
-  const rateFor = (id, mode) => num(mode === 'air' ? p(id).air : p(id).sea);
+  const rateFor = (id, mode) => freightRate(p(id), mode);
   const mildaLines = (y) =>
     logistics[y] === 'sea'
-      ? MILDA.map((m) => line(m, floorQty(num(manualQtys?.[y]?.[m.id])), num(p(m.id).price), num(p(m.id).sea)))
+      ? MILDA.map((m) => line(m, floorQty(num(manualQtys?.[y]?.[m.id])), num(p(m.id).price), freightRate(p(m.id), 'sea')))
       : [];
 
   // FY 2026 : quantités saisies ; la réserve d'assistance est déduite du budget.
@@ -325,7 +346,7 @@ export const simulate = (data) => {
     const needLanded = REGULAR.reduce((s, c) => s + floorQty(num(quantification?.[y]?.[c.id])) * num(p(c.id).price) * (1 + rateFor(c.id, mode) / 100), 0);
     const total = sum(regular, 'landed') + mildaCost;
     result[y] = {
-      year: y, mode, method, maximize: method === 'quantif' && !!data.maximize?.[y], base, reserve, bonus: carry[y], available,
+      year: y, mode, method, base, reserve, bonus: carry[y], available,
       assistCarry: assistCarry[y], assistance: reserve + assistCarry[y], residual, eTot, lines: [...regular, ...milda], mildaCost,
       needLanded,
       totalExw: sum(regular, 'exw') + sum(milda, 'exw'),

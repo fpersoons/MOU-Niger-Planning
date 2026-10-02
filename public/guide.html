@@ -34,53 +34,37 @@
   </header>
 
   <section>
-    <h2>Pour qui ?</h2>
-    <p>Pour toute personne qui doit traduire les <strong>budgets disponibles dans le cadre du MOU</strong> en <strong>quantités de produits à commander</strong> pour le Niger, sans être spécialiste de la logistique (par exemple le personnel de l’ambassade). L’onglet <strong>Assistant pas à pas</strong> (par défaut) guide en 3 étapes ; l’onglet <strong>Vue détaillée</strong> montre tous les paramètres. Tout est enregistré automatiquement.</p>
+    <h2>Principe</h2>
+    <p>L’application traduit les <strong>budgets disponibles dans le cadre du MOU</strong> en <strong>quantités d’intrants à commander</strong> pour le Niger (FY2027-FY2030), en <strong>trois onglets</strong> à remplir dans l’ordre. Tout est enregistré automatiquement dans le navigateur.</p>
   </section>
 
   <section>
-    <h2>Avant de commencer : l’acheminement</h2>
+    <h2>1. Budget</h2>
     <ul>
-      <li>La frontière Bénin–Niger est fermée : par bateau, les produits arrivent à <strong>Lomé (Togo)</strong> puis traversent le <strong>Burkina Faso</strong> par la route. Délais imprévisibles, risques de sécurité et de blocage.</li>
-      <li>Une commande passée aujourd’hui met plusieurs mois à arriver (environ 4 à 7 mois par avion, 6 à 13 mois par bateau + route — hypothèses modifiables). Les besoins de fin 2026 – début 2027 ne peuvent plus être couverts par une nouvelle commande.</li>
-      <li>L’avion évite la route mais coûte plus cher : à budget égal, on achète moins de produits. Les moustiquaires (MILDA) ne voyagent que par bateau.</li>
-      <li>Les produits de la chimioprévention saisonnière (CPS) doivent être au Niger avant la campagne (en général juillet–octobre).</li>
+      <li>Pour FY2026 à FY2030 : <strong>budget disponible</strong> du MOU et <strong>réserve d’assistance</strong> (assistance technique, entreposage, distribution).</li>
+      <li><strong>Clôture de FY2026 au 30/09/2026</strong> : lignes d’<strong>accruals</strong>, <strong>assistance engagée</strong> ; l’outil calcule le solde produits et le solde assistance.</li>
+      <li><strong>Traitement du solde</strong> : reporté en totalité sur FY2027 ou lissé sur les autres années du MOU ; chaque solde reste dans son enveloppe (budget produits / assistance disponible).</li>
     </ul>
   </section>
 
   <section>
-    <h2>Étape 1 — Budgets disponibles dans le cadre du MOU</h2>
-    <ol>
-      <li>Pour chaque année fiscale <strong>FY2026 à FY2030</strong> (1er octobre – 30 septembre) : <strong>budget disponible</strong> et <strong>réserve d’assistance</strong> (assistance technique, entreposage, distribution). La dernière colonne donne le budget pour les produits.</li>
-      <li><strong>Clôture de FY2026 au 30 septembre 2026</strong> : ajoutez une ligne par <strong>accrual</strong> (intitulé, références, montant engagé) ; indiquez s’il y a eu d’autres commandes FY2026 ; saisissez l’<strong>assistance engagée</strong> au 30/09/2026 ; l’outil calcule le <strong>solde produits</strong> (budget − réserve − accruals) et le <strong>solde assistance</strong> (réserve − assistance engagée).</li>
-      <li><strong>Traitement du solde</strong> (pour les deux soldes) : reporté en totalité sur FY2027 (exercice en cours depuis le 1er octobre 2026) ou lissé sur les autres années du MOU (FY2027-FY2030). Le solde produits s’ajoute au budget pour les produits, le solde assistance à l’assistance disponible.</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>Étape 2 — Répartition et transport</h2>
+    <h2>2. Paramètres logistiques</h2>
     <ul>
-      <li><strong>Selon la quantification PSN</strong> (par défaut) : saisissez les quantités dans le tableau « Quantification PSN » ; le <strong>split</strong> (part de chaque produit dans la valeur de l’année) se calcule automatiquement et s’affiche sous chaque quantité. Si le budget ne suffit pas, chaque produit est réduit du même pourcentage ; une case permet d’utiliser le reste pour commander davantage. Les quantités à commander s’affichent à l’étape 3.</li>
-      <li><strong>Je fixe les quantités</strong> : saisie libre à l’étape 3.</li>
-      <li><strong>Transport</strong> : avion ou bateau + route ; l’outil montre l’effet de l’autre choix.</li>
-      <li><strong>Produits attendus au Niger en</strong> : mois de besoin selon le plan d’approvisionnement. Statut : <em>Dans les temps</em> (commander avant la date indiquée), <em>Risque de retard</em> (commander sans attendre), <em>Arrivée tardive</em> (arrivera après la date souhaitée).</li>
+      <li><strong>Coûts par intrant</strong> ($/unité) : prix EXW, coût livré bateau + route, coût livré avion (MILDA : bateau uniquement).</li>
+      <li><strong>PSN 2027-2031</strong> : quantités financées par l’USG par intrant et par année ; le <strong>split</strong> (part de chaque intrant dans la valeur de l’année) se calcule automatiquement. 2031 est hors MOU.</li>
+      <li><strong>Délais d’acheminement</strong> : frontière Bénin–Niger fermée, route Lomé – Burkina Faso – Niger ; hypothèses modifiables (à confirmer avec GHSC-PSM).</li>
     </ul>
   </section>
 
   <section>
-    <h2>Étape 3 — Quantités à commander</h2>
-    <p>Par année : produit (nom courant, usage, référence), quantité à commander, coût estimé livré (produit + transport, en dollars), quantification PSN et couverture.</p>
+    <h2>3. Scénarios</h2>
     <ul>
-      <li><strong>Ajuster ces quantités à la main</strong> : saisie libre, reste du budget mis à jour en direct.</li>
-      <li><strong>Copier pour un e-mail</strong> : texte prêt à coller.</li>
-      <li><strong>Exporter le scénario en Excel</strong> : feuille « Quantités à commander » prête à transmettre + détail des calculs.</li>
+      <li><strong>Automatique (split PSN)</strong> : tout le budget produits est réparti selon le split PSN de l’année.</li>
+      <li><strong>Ajusté manuellement</strong> : on part des quantités maximales achetables, puis on les modifie ; le reste du budget se met à jour en direct.</li>
+      <li><strong>Transport</strong> et mois d’arrivée souhaité : statut <em>Dans les temps</em>, <em>Risque de retard</em> ou <em>Arrivée tardive</em>, date limite de commande et effet de l’autre mode.</li>
+      <li>Par produit : split, quantité à commander, coût livré, quantité PSN et couverture. <strong>Copier pour un e-mail</strong>, synthèse et <strong>export Excel</strong>.</li>
     </ul>
-    <p class="note">Pour comparer deux hypothèses (avion / bateau), dupliquez le scénario (colonne de droite) et modifiez la copie. Pour transférer vos scénarios sur un autre poste : Export JSON puis Import JSON.</p>
-  </section>
-
-  <section>
-    <h2>Vue détaillée</h2>
-    <p>Prix, taux de fret, quantités FY26, accruals, MILDA, import Excel (option A Google Drive souvent bloquée : télécharger le fichier puis option B), tableau complet par exercice. Un lexique est disponible en bas de l’assistant.</p>
+    <p class="note">Pour comparer deux hypothèses, dupliquez le scénario (barre sous l’en-tête). Pour changer d’ordinateur : JSON (export puis import).</p>
   </section>
   <p class="sub" style="text-align:center;margin-top:12px"><a href="./">Retour à l’application</a></p>
 </main>

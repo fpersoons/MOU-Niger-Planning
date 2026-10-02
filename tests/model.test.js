@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { defaultScenarioData, simulate, parseVal, REGULAR, MILDA, zeroedScenarioData, normalizeScenarioData, quantitiesFor } from '../src/model.js';
+import { defaultScenarioData, simulate, parseVal, freightRate, psnSplit, REGULAR, MILDA, zeroedScenarioData, normalizeScenarioData, quantitiesFor } from '../src/model.js';
 import { buildWorkbook, parseWorkbookRows, exportFileName } from '../src/excel.js';
 import { assessDelivery, fiscalYear } from '../src/logistics.js';
 
@@ -28,7 +28,7 @@ test('FY26 : dépenses, surplus et report lissé', () => {
   let expected = 0;
   for (const c of REGULAR) {
     const p = d.commodities[c.id];
-    expected += p.qty26 * p.price * (1 + p.air / 100);
+    expected += p.qty26 * p.landedAir;
   }
   expected += 1106690;
   close(sim.years['2026'].total, expected);
@@ -37,11 +37,10 @@ test('FY26 : dépenses, surplus et report lissé', () => {
   assert.ok(!sim.years['2026'].lines.some((l) => l.isMilda), 'MILDA masquées en mode Air');
 });
 
-test('FY27-30 : quantification PSN maximisée — budget saturé sans dépassement, split sur base EXW', () => {
+test('FY27-30 : split PSN — budget saturé sans dépassement, split sur base EXW', () => {
   const d = specData();
   for (const y of ['2027', '2028', '2029', '2030']) {
     for (const c of REGULAR) d.quantification[y][c.id] = 1000 * c.id;
-    d.maximize[y] = true;
   }
   d.manualQtys['2028'][11] = 100000;
   const sim = simulate(d);
@@ -50,7 +49,7 @@ test('FY27-30 : quantification PSN maximisée — budget saturé sans dépasseme
     close(yr.available, d.budgets[y] + sim.bonus);
     assert.ok(yr.balance >= 0, `solde ${y} négatif`);
     // Le reliquat est inférieur au coût landed d'une unité de chaque intrant.
-    const slack = REGULAR.reduce((s, c) => { const p = d.commodities[c.id]; return s + p.price * (1 + (yr.mode === 'air' ? p.air : p.sea) / 100); }, 0);
+    const slack = REGULAR.reduce((s, c) => { const p = d.commodities[c.id]; return s + (yr.mode === 'air' ? p.landedAir : p.landedSea); }, 0);
     assert.ok(yr.balance < slack, `${y} : budget non saturé (${yr.balance})`);
     // Part EXW de l'intrant 3 ≈ son split dans la valeur de la quantification
     const exw = yr.lines.filter((l) => !l.isMilda).reduce((s, l) => s + l.exw, 0);
@@ -81,7 +80,7 @@ test('nom de fichier export au format américain', () => {
 
 test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   const d = defaultScenarioData();
-  d.commodities[10].air = 174;
+  d.commodities[10].landedAir = 2.466;
   d.logistics['2027'] = 'sea';
   d.manualQtys['2027'][12] = 4321;
   d.budgets['2029'] = 8000000;
@@ -92,7 +91,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.methods['2028'] = 'quantif';
   d.methods['2030'] = 'manual';
   d.quantification['2028'][3] = 150000;
-  d.maximize['2028'] = true;
+  d.quantification['2031'][4] = 777;
   d.carryover = 'smooth';
   d.fy26Spending = 'planned';
   d.leadTimes.sea.max = 15;
@@ -107,8 +106,8 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   const { data, found } = parseWorkbookRows([rows], zeroedScenarioData(defaultScenarioData()));
   assert.equal(found, 13);
   for (const c of [...REGULAR, ...MILDA]) {
-    for (const k of ['price', 'sea']) close(data.commodities[c.id][k], d.commodities[c.id][k]);
-    if (!c.isMilda) for (const k of ['air', 'qty26']) close(data.commodities[c.id][k], d.commodities[c.id][k]);
+    for (const k of ['price', 'landedSea']) close(data.commodities[c.id][k], d.commodities[c.id][k]);
+    if (!c.isMilda) for (const k of ['landedAir', 'qty26']) close(data.commodities[c.id][k], d.commodities[c.id][k]);
   }
   assert.deepEqual(data.logistics, d.logistics);
   assert.equal(data.budgets['2029'], 8000000);
@@ -122,7 +121,7 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.equal(data.reserves['2028'], 1600000);
   assert.deepEqual(data.methods, d.methods);
   assert.equal(data.quantification['2028'][3], 150000);
-  assert.deepEqual(data.maximize, d.maximize);
+  assert.equal(data.quantification['2031'][4], 777);
   assert.equal(data.carryover, 'smooth');
   assert.equal(data.fy26Spending, 'planned');
   assert.equal(data.leadTimes.sea.max, 15);
@@ -134,7 +133,6 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
 test('réserve d’assistance déduite du budget intrants', () => {
   const d = specData();
   for (const c of REGULAR) d.quantification['2027'][c.id] = 1000;
-  d.maximize['2027'] = true;
   const ref = simulate(d);
   d.reserves['2026'] = 100000;
   d.reserves['2027'] = 1600000;
@@ -152,7 +150,7 @@ const withQuantif = (scale) => {
   return d;
 };
 
-test('quantification PSN : budget insuffisant → réduction proportionnelle sans dépassement', () => {
+test('split PSN : budget insuffisant → réduction proportionnelle sans dépassement', () => {
   const d = withQuantif(10);
   const yr = simulate(d).years['2027'];
   assert.ok(yr.balance >= 0);
@@ -161,25 +159,15 @@ test('quantification PSN : budget insuffisant → réduction proportionnelle san
   assert.ok(Math.max(...cov) - Math.min(...cov) < 0.01, 'couverture uniforme');
 });
 
-test('quantification PSN : budget suffisant → plafonné aux besoins', () => {
+test('split PSN : budget supérieur au PSN → tout le budget utilisé, au-delà des quantités PSN', () => {
   const d = withQuantif(0.1);
   const yr = simulate(d).years['2027'];
-  for (const l of yr.lines.filter((x) => !x.isMilda)) assert.ok(l.qty <= l.need, `${l.name} dépasse le besoin`);
-  assert.ok(yr.lines.filter((x) => !x.isMilda && x.need > 0).every((l) => l.need - l.qty <= 1));
-  assert.ok(yr.balance > 0);
-});
-
-test('quantification PSN maximisée : tout le budget utilisé, au-delà des besoins', () => {
-  const d = withQuantif(0.1);
-  d.maximize['2027'] = true;
-  const yr = simulate(d).years['2027'];
-  assert.ok(yr.maximize);
   assert.ok(yr.balance >= 0);
   const reg = yr.lines.filter((x) => !x.isMilda && x.need > 0);
   assert.ok(reg.every((l) => l.qty > l.need), 'quantités au-delà des besoins');
   const cov = reg.map((l) => l.coverage);
   assert.ok((Math.max(...cov) - Math.min(...cov)) / Math.max(...cov) < 0.01, 'proportions conservées');
-  const slack = REGULAR.reduce((s, c) => { const p = d.commodities[c.id]; return s + p.price * (1 + p.air / 100); }, 0);
+  const slack = REGULAR.reduce((s, c) => { const p = d.commodities[c.id]; return s + p.landedAir; }, 0);
   assert.ok(yr.balance < slack, 'budget saturé');
 });
 
@@ -194,7 +182,8 @@ test('quantités manuelles : saisies telles quelles, solde éventuellement néga
   // pré-remplissage « quantification ajustée au budget » = méthode quantif sur le même budget résiduel
   d.quantification['2029'][3] = 1000;
   const q = quantitiesFor(d, '2029', 'quantif', yr.residual).qtys;
-  assert.equal(q[3], 1000);
+  assert.ok(q[3] > 1000, 'tout le budget sur le seul intrant du PSN');
+  assert.equal(q[1], 0);
 });
 
 test('anciens scénarios (sans réserve ni méthode) complétés par défaut', () => {
@@ -275,4 +264,15 @@ test('solde d’assistance FY2026 reporté comme le solde produits, enveloppe s�
   // anciens scénarios : réserve FY26 considérée comme dépensée
   const old = defaultScenarioData(); delete old.fy26AssistanceSpent; old.reserves['2026'] = 500000;
   assert.equal(normalizeScenarioData(old).fy26AssistanceSpent, 500000);
+});
+
+test('coûts livrés : taux implicite et reprise de l’ancien format en %', () => {
+  const d = defaultScenarioData();
+  close(freightRate(d.commodities[10], 'air'), 174, 1e-3);
+  const old = normalizeScenarioData({ commodities: { 1: { price: 10, air: 50, sea: 20, qty26: 5 } } });
+  close(old.commodities[1].landedAir, 15);
+  close(old.commodities[1].landedSea, 12);
+  d.quantification['2027'][1] = 100; d.quantification['2027'][4] = 300;
+  const sp = psnSplit(d, '2027');
+  close(sp[1], 1379 / (1379 + 1500));
 });
