@@ -110,7 +110,7 @@ function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty,
           <thead>
             <tr className="text-[9px] font-semibold uppercase text-chem-gray2 bg-chem-gray1-5 border-b border-chem-gray1-20">
               <th className="px-2 py-1.5 text-left">Produit</th>
-              <th className="px-2 py-1.5 text-right">Split PSN</th>
+              <th className="px-2 py-1.5 text-right" title="Part de chaque intrant dans la valeur (EXW) des quantités prévues pour l’USG dans la quantification du PSN 2027-2031">Split contribution USG</th>
               <th className="px-2 py-1.5 text-right">Quantité commandable<span className="block normal-case font-normal">ajustée au budget disponible</span></th>
               <th className="px-2 py-1.5 text-right">Coût livré</th>
               <th className="px-2 py-1.5 text-right" title={PSN_LABEL}>Quantité initialement prévue pour l’USG<span className="block normal-case font-normal">quantification PSN 2027-2031 ({yr.year})</span></th>

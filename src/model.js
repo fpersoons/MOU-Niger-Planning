@@ -35,8 +35,8 @@ export const REGULAR = COMMODITIES.filter((c) => !c.isMilda);
 export const MILDA = COMMODITIES.filter((c) => c.isMilda);
 export const byId = Object.fromEntries(COMMODITIES.map((c) => [c.id, c]));
 
-// Valeurs de référence (cahier des charges) : prix EXW et taux de fret en % ; les
-// coûts livrés unitaires (landed) en sont déduits : landed = EXW × (1 + taux).
+// Valeurs du cahier des charges : prix EXW et taux de fret en %. Servent seulement à
+// convertir les anciens scénarios (taux en %) en coûts livrés : landed = EXW × (1 + taux).
 const REFERENCE_PARAMS = {
   1: { price: 13.79, air: 61.41, sea: 50, qty26: 15000 },
   2: { price: 12.0, air: 54.04, sea: 50, qty26: 31959 },
@@ -61,32 +61,26 @@ const toLanded = (p) => ({
   qty26: n0(p.qty26),
 });
 // Paramètres éditables par intrant : prix EXW, coût livré unitaire bateau + route
-// (landedSea) et avion (landedAir), quantité FY26.
-// Coût livré maritime (TLC) : fichier « Malaria_MOU_27-Niger.xlsx », onglet Commodity
-// calculator, colonne F, pour les références retenues par le Niger. En conservant les
-// pourcentages de transport de référence (REFERENCE_PARAMS : sea, air) :
-//   prix EXW = livré maritime ÷ (1 + % maritime) ; livré avion = EXW × (1 + % aérien).
-const MOU27_LANDED_SEA = {
-  1: 16.028172,   // SP 25/500mg, plaquette de 3 cp, boîte de 50 plaquettes
-  2: 14.527818,   // AQ + SP 76.5mg + 12.5/250mg, boîte de 50 co-blisters
-  3: 17.0772,     // AQ + SP 153mg + 25/500mg, boîte de 50 co-blisters
-  4: 10.747648,   // TDR Pf/Pv, kit de 25 tests
-  5: 7.3188,      // AL 20/120mg dispersible, 6 cp × 30 plaquettes
-  6: 12.56394,    // AL 20/120mg dispersible, 12 cp × 30 plaquettes
-  7: 17.0772,     // AL 20/120mg, 18 cp × 30 plaquettes
-  8: 19.175256,   // AL 20/120mg, 24 cp × 30 plaquettes
-  9: 1.622334,    // Artésunate 60mg injectable, flacon
-  10: 0.85386,    // Artésunate 100mg suppositoire, boîte de 2
-  11: 2.28763366, // MILDA standard 190×180×170 cm
-  12: 2.62888288, // MILDA PBO 190×180×170 cm
-  13: 3.55151966, // MILDA double principe actif 190×180×170 cm
+// (landedSea) et avion (landedAir), quantité FY26. Valeurs par défaut validées le
+// 02/10/2026 (scénario de référence) : coût livré maritime du fichier
+// « Malaria_MOU_27-Niger.xlsx » (Commodity calculator, colonne F) et livré avion =
+// EXW × (1 + % aérien de référence). MILDA : bateau uniquement.
+const DEFAULT_PARAMS = {
+  1: { price: 13.14, landedSea: 16.03, landedAir: 21.2093, qty26: 15000 },  // SP 25/500mg, boîte de 50 plaquettes de 3 cp
+  2: { price: 11.91, landedSea: 14.53, landedAir: 18.3462, qty26: 31959 },  // AQ + SP 3-11 mois, boîte de 50 co-blisters
+  3: { price: 14, landedSea: 17.08, landedAir: 20.5702, qty26: 124442 },    // AQ + SP 12-59 mois, boîte de 50 co-blisters
+  4: { price: 8, landedSea: 10.75, landedAir: 16, qty26: 0 },               // TDR, kit de 25 tests
+  5: { price: 6, landedSea: 7.32, landedAir: 9.492, qty26: 28000 },         // AL 6 cp × 30
+  6: { price: 10.3, landedSea: 12.56, landedAir: 14.7187, qty26: 30480 },   // AL 12 cp × 30
+  7: { price: 14, landedSea: 17.08, landedAir: 22.4, qty26: 15000 },        // AL 18 cp × 30
+  8: { price: 15.72, landedSea: 19.18, landedAir: 23.7686, qty26: 26552 },  // AL 24 cp × 30
+  9: { price: 1.33, landedSea: 1.62, landedAir: 2.7863, qty26: 650000 },    // Artésunate 60mg injectable, flacon
+  10: { price: 0.7, landedSea: 0.85, landedAir: 1.918, qty26: 10000 },      // Artésunate 100mg suppositoire
+  11: { price: 1.81, landedSea: 2.28763366, landedAir: 1.81, qty26: 0 },    // MILDA standard
+  12: { price: 2.08, landedSea: 2.62888288, landedAir: 2.08, qty26: 0 },    // MILDA PBO
+  13: { price: 2.81, landedSea: 3.55151966, landedAir: 2.81, qty26: 0 },    // MILDA double principe actif
 };
-const DEFAULT_PARAMS = Object.fromEntries(Object.entries(REFERENCE_PARAMS).map(([id, p]) => {
-  const landedSea = MOU27_LANDED_SEA[id];
-  const price = round4(landedSea / (1 + n0(p.sea) / 100));
-  return [id, { price, landedSea, landedAir: round4(price * (1 + n0(p.air) / 100)), qty26: n0(p.qty26) }];
-}));
-/** Coûts de référence (MOU 27) : prix EXW et coûts livrés, sans les quantités. */
+/** Coûts de référence (valeurs par défaut) : prix EXW et coûts livrés, sans les quantités. */
 export const referenceCosts = () => Object.fromEntries(Object.entries(DEFAULT_PARAMS).map(([id, p]) =>
   [id, { price: p.price, landedSea: p.landedSea, landedAir: p.landedAir }]));
 
@@ -118,10 +112,9 @@ export const accrualsTotal = (accruals) =>
   (accruals?.items || []).reduce((s, a) => s + num(a.amount) * (1 + num(a.freightPct) / 100), 0);
 
 // Réserve d'assistance (assistance technique, entreposage, distribution) déduite
-// du budget total de chaque exercice. 0 par défaut (budgets du cahier des charges).
-// FY2026 : 1,8 M$ prévus pour l'assistance (fichier MOU 27, ligne « Supply Chain Management
-// and Warehouse and distribution ») ; années suivantes à saisir.
-export const DEFAULT_RESERVES = { 2026: 1800000, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
+// du budget de chaque exercice (fichier MOU 27, ligne « Supply Chain Management and
+// Warehouse and distribution »). FY2026 : indicative (exercice clos).
+export const DEFAULT_RESERVES = { 2026: 1800000, 2027: 1500000, 2028: 1300000, 2029: 1000000, 2030: 800000 };
 
 // Méthode de calcul des quantités des intrants réguliers en FY27-FY30 :
 //  quantif — tout le budget réparti selon le split PSN (base EXW) : quantités maximales ;
@@ -145,9 +138,9 @@ export const FY26_SPENDING = ['planned', 'unspent'];
 export const CARRY_RULES = ['next', 'smooth', 'none'];
 export const CARRY_LABEL = { next: 'Année suivante', smooth: 'Lissé sur les années suivantes', none: 'Aucun report' };
 export const CARRY_YEARS = ['2026', '2027', '2028', '2029'];
-export const DEFAULT_CARRY_RULES = { 2026: 'next', 2027: 'next', 2028: 'next', 2029: 'next' };
+export const DEFAULT_CARRY_RULES = { 2026: 'smooth', 2027: 'none', 2028: 'none', 2029: 'none' };
 // Accruals (montants engagés) par année ; FY2026 : engagements au 30/09/2026.
-export const DEFAULT_YEAR_ACCRUALS = { 2026: 1106690, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
+export const DEFAULT_YEAR_ACCRUALS = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
 
 
 const emptyManual = () =>
@@ -155,7 +148,11 @@ const emptyManual = () =>
 const emptyRegular = (years = FUTURE_YEARS) =>
   Object.fromEntries(years.map((y) => [y, Object.fromEntries(REGULAR.map((c) => [c.id, 0]))]));
 
-/** Données d'un scénario aux valeurs par défaut du cahier des charges. */
+// Quantités prévues pour l'USG dans la quantification du PSN 2027-2031, année 2027
+// (scénario de référence du 02/10/2026) ; années suivantes à saisir.
+const DEFAULT_PSN_2027 = { 1: 46560, 2: 49623, 3: 146156, 4: 144000, 5: 43447, 6: 47318, 7: 32150, 8: 41236, 9: 1009453, 10: 15519 };
+
+/** Données d'un scénario aux valeurs par défaut (scénario de référence du 02/10/2026). */
 export const defaultScenarioData = () => ({
   budgets: { ...DEFAULT_BUDGETS },
   reserves: { ...DEFAULT_RESERVES },
@@ -168,7 +165,7 @@ export const defaultScenarioData = () => ({
   // Moustiquaires (MILDA) : non prévues dans le MOU, masquées et exclues des calculs.
   includeMilda: false,
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
-  quantification: emptyRegular(PSN_YEARS),  // quantités financées par l'USG dans le PSN 2027-2031
+  quantification: { ...emptyRegular(PSN_YEARS), 2027: { ...DEFAULT_PSN_2027 } },  // quantités prévues pour l'USG, PSN 2027-2031
   regularQtys: emptyRegular(),     // quantités saisies (méthode « manual »), FY27-FY30
 });
 

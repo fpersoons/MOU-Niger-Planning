@@ -28,14 +28,14 @@ test('parseVal respecte l’heuristique du cahier des charges', () => {
   assert.equal(parseVal('0,5', true), 50);
 });
 
-test('FY2026 : solde = budget − accruals, reporté sur l’année suivante (défaut)', () => {
+test('FY2026 : solde = budget − accruals, reporté sur l’année suivante', () => {
   const d = defaultScenarioData();
-  assert.equal(d.carryRules['2026'], 'next');
+  d.yearAccruals['2026'] = 1106690;
   const sim = simulate(noLaterCarry(d));
   close(sim.surplus, 13321800 - 1106690);
   close(sim.years['2027'].bonus, sim.surplus);
-  close(sim.years['2027'].available, d.budgets['2027'] + sim.surplus);
-  close(sim.years['2028'].available, d.budgets['2028']);
+  close(sim.years['2027'].available, d.budgets['2027'] + sim.surplus - d.reserves['2027']);
+  close(sim.years['2028'].available, d.budgets['2028'] - d.reserves['2028']);
   // la réserve FY2026 n'est pas déduite : seule compte la part engagée (accruals)
   d.reserves['2026'] = 1600000;
   close(simulate(noLaterCarry(d)).surplus, 13321800 - 1106690);
@@ -48,6 +48,7 @@ test('FY2026 lissé : solde ÷ 4 sur FY2027-FY2030', () => {
 
 test('FY26 avec commandes saisies (anciens scénarios) : solde = budget − accruals − commandes', () => {
   const d = noLaterCarry({ ...defaultScenarioData(), fy26Spending: 'planned' });
+  d.yearAccruals['2026'] = 1106690;
   const orders = REGULAR.reduce((s, c) => s + d.commodities[c.id].qty26 * d.commodities[c.id].landedAir, 0);
   const sim = simulate(d);
   close(sim.years['2026'].total, orders);
@@ -57,6 +58,7 @@ test('FY26 avec commandes saisies (anciens scénarios) : solde = budget − accr
 
 test('report par année : solde FY2027 vers l’année suivante, ou lissé sur les suivantes', () => {
   const d = withPsn(defaultScenarioData());
+  d.carryRules = { 2026: 'next', 2027: 'next', 2028: 'next', 2029: 'next' };
   d.methods['2027'] = 'manual'; // rien commandé en FY2027 : tout le budget est un solde
   let sim = simulate(d);
   const s27 = sim.years['2027'].balance;
@@ -85,7 +87,7 @@ test('FY27-30 : split PSN — budget saturé sans dépassement, split sur base E
   const sim = simulate(d);
   for (const y of ['2027', '2028', '2029', '2030']) {
     const yr = sim.years[y];
-    close(yr.available, d.budgets[y] + sim.surplus / 4);
+    close(yr.available, d.budgets[y] + sim.surplus / 4 - d.reserves[y]);
     assert.ok(yr.balance >= 0, `solde ${y} négatif`);
     const slack = REGULAR.reduce((s, c) => { const p = d.commodities[c.id]; return s + (yr.mode === 'air' ? p.landedAir : p.landedSea); }, 0);
     assert.ok(yr.balance < slack, `${y} : budget non saturé (${yr.balance})`);
@@ -98,8 +100,10 @@ test('FY27-30 : split PSN — budget saturé sans dépassement, split sur base E
   assert.equal(sim.years['2028'].lines.filter((l) => l.isMilda).length, MILDA.length);
 });
 
-test('PSN non saisi : aucune quantité calculée', () => {
-  const yr = simulate(defaultScenarioData()).years['2027'];
+test('PSN non saisi : aucune quantité calculée ; PSN 2027 par défaut', () => {
+  const d = defaultScenarioData();
+  assert.equal(d.quantification['2027'][4], 144000);
+  const yr = simulate(d).years['2028'];
   assert.equal(yr.method, 'quantif');
   assert.equal(yr.total, 0);
 });
@@ -213,22 +217,26 @@ test('années fiscales : FY2027 = 1er octobre 2026 – 30 septembre 2027', () =>
 test('coûts livrés : taux implicite et split PSN', () => {
   const d = defaultScenarioData();
   close(freightRate(d.commodities[10], 'air'), 174, 0.01);
-  close(freightRate(d.commodities[1], 'sea'), 50, 0.01);
+  close(freightRate(d.commodities[4], 'air'), 100, 0.01);
+  close(freightRate(d.commodities[4], 'sea'), 34.375, 0.01);
+  d.quantification['2027'] = Object.fromEntries(REGULAR.map((c) => [c.id, 0]));
   d.quantification['2027'][1] = 100; d.quantification['2027'][4] = 300;
   const v1 = 100 * d.commodities[1].price; const v4 = 300 * d.commodities[4].price;
   close(psnSplit(d, '2027')[1], v1 / (v1 + v4));
-  // coûts de référence MOU 27 : livré maritime (colonne F) ; EXW = livré ÷ 1,5 ; avion = EXW × (1 + % aérien)
-  close(d.commodities[4].landedSea, 10.747648);
-  close(d.commodities[4].price, 10.747648 / 1.5, 1e-4);
-  close(d.commodities[4].landedAir, d.commodities[4].price * 2, 1e-3);
-  close(d.commodities[9].landedSea, 1.622334);
+  // valeurs par défaut (scénario de référence du 02/10/2026)
+  assert.deepEqual(d.commodities[4], { price: 8, landedSea: 10.75, landedAir: 16, qty26: 0 });
+  close(d.commodities[9].landedSea, 1.62);
+  assert.deepEqual(d.reserves, { 2026: 1800000, 2027: 1500000, 2028: 1300000, 2029: 1000000, 2030: 800000 });
+  assert.deepEqual(d.carryRules, { 2026: 'smooth', 2027: 'none', 2028: 'none', 2029: 'none' });
+  assert.equal(d.yearAccruals['2026'], 0);
 });
 
 test('FY2026 : solde = budget − accruals ; la réserve prévue n’est pas déduite ; ancien champ « assistance dépensée » repris dans les accruals', () => {
   const d = noLaterCarry(defaultScenarioData());
   assert.equal(d.reserves['2026'], 1800000);
+  d.yearAccruals['2026'] = 1106690;
   close(simulate(d).surplus, 13321800 - 1106690);
-  const old = normalizeScenarioData({ ...defaultScenarioData(), fy26AssistanceSpent: 1200000 });
+  const old = normalizeScenarioData({ ...defaultScenarioData(), yearAccruals: { 2026: 1106690 }, fy26AssistanceSpent: 1200000 });
   close(old.yearAccruals['2026'], 1106690 + 1200000);
   assert.equal('fy26AssistanceSpent' in old, false);
 });
@@ -261,4 +269,20 @@ test('export Excel : calculs en formules liées à « Paramètres », couleurs d
   ws.eachRow((row) => { if (row.getCell(5).value !== null && typeof row.getCell(5).value === 'number') assert.fail(`valeur figée ligne ${row.number}`); });
   const banner = ws.getRow(6).getCell(1);
   assert.equal(banner.fill.fgColor.argb, 'FF005D83');
+});
+
+test('quantités automatiques : coût livré du mode de transport (avion vs bateau)', () => {
+  const d = defaultScenarioData();
+  const at = (mode) => simulate({ ...d, logistics: { ...d.logistics, 2027: mode } }).years['2027'];
+  const air = at('air'); const sea = at('sea');
+  close(air.available, sea.available);
+  for (const c of REGULAR) {
+    const la = air.lines.find((l) => l.id === c.id); const ls = sea.lines.find((l) => l.id === c.id);
+    close(la.landed / la.qty, d.commodities[c.id].landedAir, 1e-6);
+    close(ls.landed / ls.qty, d.commodities[c.id].landedSea, 1e-6);
+    assert.ok(ls.qty > la.qty, `${c.name} : plus de quantités par bateau`);
+  }
+  // Avion : tout le budget est utilisé, quantités proches des quantités prévues (PSN 2027)
+  assert.ok(air.balance >= 0 && air.balance < 100);
+  assert.equal(air.lines.find((l) => l.id === 3).qty, 145222);
 });

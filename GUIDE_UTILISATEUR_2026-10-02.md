@@ -30,10 +30,11 @@ années suivantes du MOU.
 
 - **Coûts par intrant**, en dollars par **unité d'achat** (boîte, kit, flacon,
   moustiquaire) : **prix EXW**, **coût livré bateau + route** et **coût livré
-  avion**. Par défaut, le coût livré maritime vient du fichier *Malaria MOU 27 Niger*
-  (onglet Commodity calculator, colonne F) ; le prix EXW en est déduit en retirant
-  le fret maritime (50 %), et le coût avion est calculé à partir du prix EXW avec le
-  pourcentage de fret aérien de référence de chaque produit. Le bouton « Coûts de référence MOU 27 » rétablit ces valeurs.
+  avion**. Les valeurs par défaut sont celles du scénario de référence du 02/10/2026
+  (coût livré maritime du fichier *Malaria MOU 27 Niger* ; coût avion = prix EXW +
+  fret aérien de référence). Le bouton « Coûts par défaut » les rétablit. Dans les
+  scénarios, les quantités sont calculées avec le coût livré **du mode de transport
+  choisi** pour l'année (avion ou bateau + route).
 - **Quantités USG — quantification du PSN 2027-2031** : quantités prévues d'être
   couvertes par le Gouvernement américain (USG) dans la quantification du Plan
   stratégique 2027-2031 (PSN). Saisissez-les par intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
@@ -52,7 +53,7 @@ Pour chaque année FY2027-FY2030 :
 - **Transport** : avion ou bateau + route. Pour l'année à venir (FY2027), l'avion
   est retenu par défaut pour respecter le plan d'approvisionnement ; l'équipe
   choisit ensuite selon les dates du plan.
-- Par produit : split PSN, **quantité commandable** (en unités d'achat) — c'est-à-dire
+- Par produit : **split contribution USG**, **quantité commandable** (en unités d'achat) — c'est-à-dire
   la quantité initialement prévue pour l'USG dans la quantification du PSN 2027-2031,
   **ajustée pour rester dans le budget disponible** —, coût livré, **quantité
   initialement prévue pour l'USG** et **écart** par rapport
@@ -68,10 +69,16 @@ Pour chaque année FY2027-FY2030 :
   - **Tout est calculé par formules** : en modifiant une cellule bleu clair, Excel
     recalcule les quantités, les coûts, les reports et les restes comme l'application.
 
-## Scénarios enregistrés
+## Enregistrer son scénario
 
-La barre sous l'en-tête permet de choisir le scénario actif, de le renommer, d'en
-créer un nouveau, de le **dupliquer** (pour comparer deux hypothèses, par exemple
-avion et bateau) ou de le supprimer. **Télécharger le scénario** enregistre le
-scénario actif dans un fichier ; **Charger un scénario** le recharge (par exemple sur
-un autre ordinateur).
+L'application s'ouvre avec les valeurs par défaut ; dès qu'on les modifie, on
+construit son scénario, enregistré automatiquement dans le navigateur. La barre sous
+l'en-tête permet de :
+
+- **nommer** le scénario (le nom figure dans l'export Excel et le texte pour e-mail) ;
+- **Réinitialiser** : revenir aux valeurs par défaut ;
+- **Télécharger le scénario** : l'enregistrer dans un fichier, pour le conserver ou le
+  transmettre ;
+- **Charger un scénario** : reprendre un fichier téléchargé (il remplace les valeurs
+  actuelles). Pour comparer deux hypothèses, téléchargez la première, modifiez, puis
+  rechargez-la si besoin.
