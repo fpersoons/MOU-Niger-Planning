@@ -1,60 +1,70 @@
-# Guide utilisateur — Planificateur Intrants Paludisme FY26-FY30
+# Guide utilisateur — MOU Niger : planificateur des intrants paludisme
 
-## 1. Principe
+L'application traduit les **budgets disponibles dans le cadre du MOU** en
+**quantités d'intrants à commander** pour le Niger (FY2027-FY2030). Elle s'organise
+en **trois onglets**, à remplir dans l'ordre ; les boutons en bas de page passent à
+l'onglet suivant. Tout est enregistré automatiquement dans le navigateur
+(pastille « Sauvegardé »).
 
-L'outil simule les achats d'intrants antipaludiques de FY2026 à FY2030 :
+## 1. Budget
 
-1. **FY2026** : vous saisissez les quantités. Les dépenses (EXW + fret + accruals)
-   sont déduites du budget ; le reste est le **surplus FY26**.
-2. Le surplus est divisé par 4 (**report annuel lissé**) et ajouté aux budgets FY27 à FY30.
-3. **FY2027 à FY2030** : l'outil calcule lui-même les quantités. Il retire d'abord le
-   coût des MILDA (si l'exercice est en mode Mer), puis répartit le budget restant
-   entre les 10 intrants réguliers selon le **split FY25 appliqué à la valeur EXW**,
-   en utilisant le maximum du budget, fret compris, sans le dépasser.
+Un seul tableau, une ligne par année fiscale **FY2026 à FY2030** (1er octobre – 30
+septembre) :
 
-## 2. L'écran
+| Colonne | Contenu |
+| --- | --- |
+| Budget MOU | budget disponible dans le cadre du MOU |
+| Réserve assistance | assistance technique, entreposage, distribution ; pour FY2026 : montant **prévu** et montant **dépensé** |
+| Accruals | montants engagés (pour FY2026 : au 30/09/2026) |
+| Report reçu | soldes reportés depuis les années précédentes (calculé) |
+| = Budget produits | budget MOU + report reçu − réserve − accruals (calculé) |
+| Report du solde | *Année suivante*, *Lissé sur les années suivantes* ou *Aucun report* |
 
-- **En-tête** : indicateur de sauvegarde, lien vers ce guide, Import / Export JSON,
-  bouton **Exporter Excel** (scénario actif).
-- **Colonne de gauche**
-  - *Gestion des données* : A — charger le fichier de référence Google Drive ;
-    B — charger un fichier Excel local ; C — remettre le scénario à zéro.
-  - *Configuration des intrants* : split FY25 (doit totaliser 100 % : badge vert,
-    sinon rouge), prix EXW, taux de fret Air et Mer (en % du prix EXW), quantité FY26.
-  - *Logistique annuelle* : mode Air ou Mer et budget initial de chaque exercice.
-- **Colonne centrale** : un tableau par exercice (cliquer sur l'en-tête pour le
-  replier). En FY26, la ligne *Accruals* permet de modifier l'intitulé, le montant
-  EXW et le taux de fret aérien (au centième près, pour caler le montant landed sur
-  MFS). En mode Mer, les trois lignes MILDA apparaissent avec un champ de quantité.
-- **Colonne de droite** : surplus FY26, report annuel lissé, liste des scénarios.
-- **Bas de page** : synthèse pluriannuelle.
+Le **solde** d'une année est, pour **FY2026** (clos), budget − accruals − assistance
+dépensée : la part non dépensée de la réserve d'assistance en fait donc partie. Pour les années suivantes, c'est la part du
+budget produits non utilisée dans les scénarios. Il est reporté selon le choix de la
+dernière colonne : en totalité sur l'année suivante, ou à parts égales sur toutes les
+années suivantes du MOU.
 
-Les montants se saisissent avec une virgule ou un point décimal. Tout est enregistré
-automatiquement (pastille « Sauvegardé »).
+## 2. Paramètres logistiques
+
+- **Coûts par intrant**, en dollars par **unité d'achat** (boîte, kit, flacon,
+  moustiquaire) : **prix EXW**, **coût livré bateau + route** et **coût livré
+  avion**. Par défaut, le coût livré maritime vient du fichier *Malaria MOU 27 Niger*
+  (onglet Commodity calculator, colonne F) ; le prix EXW en est déduit en retirant
+  le fret maritime (50 %), et le coût avion est calculé à partir du prix EXW avec le
+  pourcentage de fret aérien de référence de chaque produit. Le bouton « Coûts de référence MOU 27 » rétablit ces valeurs.
+- **Quantités financées par l'USG — PSN 2027-2031** : saisissez les quantités par
+  intrant et par année. Le **split** (part de chaque intrant dans la valeur EXW de
+  l'année) se calcule automatiquement ; 2031 est hors MOU (pour information).
+- Les **moustiquaires (MILDA)**, non prévues dans le MOU, sont masquées ; la case
+  « Inclure les moustiquaires » les réaffiche si besoin.
 
 ## 3. Scénarios
 
-- **+** : nouveau scénario aux valeurs par défaut du cahier des charges.
-- Cliquer sur le rond à gauche d'un scénario pour l'activer ; cliquer sur son nom
-  pour le renommer.
-- Icônes : exporter en Excel, dupliquer, supprimer.
-- Un import Excel (option A ou B) crée toujours un **nouveau** scénario.
+Pour chaque année FY2027-FY2030 :
 
-Les scénarios restent dans le navigateur utilisé. Pour les sauvegarder ou les
-retrouver sur un autre ordinateur : **Export JSON**, puis **Import JSON**.
+- **Automatique (split PSN)** : tout le budget pour les produits est réparti selon le
+  split PSN de l'année.
+- **Ajusté manuellement** : on part des **quantités maximales** achetables, puis on
+  les modifie ; le reste du budget (ou le dépassement) se met à jour en direct.
+- **Transport** : avion ou bateau + route. Pour l'année à venir (FY2027), l'avion
+  est retenu par défaut pour respecter le plan d'approvisionnement ; l'équipe
+  choisit ensuite selon les dates du plan.
+- Par produit : split PSN, **quantité commandable** (en unités d'achat) — c'est-à-dire
+  la quantité initialement prévue pour l'USG, **ajustée pour rester dans le budget
+  disponible** —, coût livré, **quantité initialement prévue** et **écart** par rapport
+  à cette quantité (−4 % = 4 % de moins que prévu).
+- **Copier pour un e-mail** et **synthèse FY2027-FY2030**.
+- **Exporter Excel** (en-tête) : une feuille « Quantités et coûts » qui donne, par
+  année, la quantité commandable, le prix unitaire livré et le total livré de chaque
+  produit (formules modifiables dans Excel), le total commandé, le budget et le reste ;
+  une feuille « Paramètres » reprend les hypothèses.
 
-## 4. Export Excel
+## Scénarios enregistrés
 
-Le fichier `GHSC-PSM_Budget_Prospective_MM_JJ_AA_<scénario>.xlsx` contient :
-
-- la feuille **Simulation** : un tableau par exercice (intrants par catégorie,
-  quantités, EXW, fret, landed), puis budget de base, report lissé, budget
-  disponible, total dépenses et solde final (vert si positif, rouge si négatif) ;
-- la feuille **Paramètres** : tous les réglages du scénario. Ce fichier peut être
-  rechargé tel quel avec l'option B.
-
-## 5. Option A — Google Drive
-
-Google Drive refuse en général la lecture directe depuis une page web (sécurité
-« CORS »). Dans ce cas un message l'indique : ouvrir le fichier dans Drive, le
-télécharger (Fichier → Télécharger → .xlsx), puis le charger avec l'option B.
+La barre sous l'en-tête permet de choisir le scénario actif, de le renommer, d'en
+créer un nouveau, de le **dupliquer** (pour comparer deux hypothèses, par exemple
+avion et bateau) ou de le supprimer. **Télécharger le scénario** enregistre le
+scénario actif dans un fichier ; **Charger un scénario** le recharge (par exemple sur
+un autre ordinateur).
