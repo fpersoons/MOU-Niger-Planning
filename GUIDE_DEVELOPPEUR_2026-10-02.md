@@ -19,7 +19,7 @@ src/icons.jsx         icônes SVG maison (DESIGN_SYSTEM §6)
 src/model.js          constantes, valeurs par défaut, parseVal, simulate() — pur
 src/excel.js          buildWorkbook / exportScenarioXlsx / importWorkbook
 src/index.css         directives Tailwind + bloc accessibilité
-public/assets/        logo U.S. Department of State
+public/assets/        logo affiché dans l'en-tête
 public/guide.html     guide utilisateur en ligne
 tests/model.test.js   tests node:test (npm test)
 docs/                 cahier des charges d'origine
@@ -37,13 +37,13 @@ docs/                 cahier des charges d'origine
       "reserves":    { "2026": 0, …, "2030": 0 },            // réserve d'assistance
       "methods":     { "2027": "split" | "quantif" | "manual", … },
       "maximize":    { "2027": false, … },                    // quantif sans plafond
-      "fy26Spending": "unspent" | "planned",                  // FY26 clos : rien commandé / quantités FY26
+      "fy26Spending": "unspent" | "planned",                  // FY26 clos : accruals seules / + quantités FY26
       "carryover":   "fy27" | "smooth",                       // report du non-dépensé FY26
       "leadTimes":   { "air": { "min": 4, "max": 7 }, "sea": { "min": 6, "max": 13 } },  // mois
       "needDates":   { "2027": "2027-01", … },                // produits attendus au Niger
       "commodities": { "1": { "split": 4.41, "price": 13.79, "air": 61.41, "sea": 50, "qty26": 15000 }, … },
       "logistics":   { "2026": "air", …, "2030": "sea" },
-      "accruals":    { "amount": 1106690, "desc": "mRDTs (RO Accruals)", "refs": "", "freightPct": 0 },
+      "accruals":    { "items": [ { "id": "acc1", "desc": "mRDTs (RO Accruals)", "refs": "", "amount": 1106690, "freightPct": 0 } ] },  // au 30/09/2026
       "manualQtys":  { "2026": { "11": 0, "12": 0, "13": 0 }, … },   // MILDA
       "quantification": { "2027": { "1": 0, …, "10": 0 }, … },        // besoins Niger
       "regularQtys":    { "2027": { "1": 0, …, "10": 0 }, … }         // méthode manual

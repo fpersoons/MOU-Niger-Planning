@@ -1,7 +1,7 @@
 # Guide utilisateur — MOU Niger Planning (intrants paludisme FY2027-FY2030)
 
-Ce guide s'adresse à toute personne qui doit traduire un **budget communiqué par le
-siège** en **quantités de produits à commander** pour le Niger, sans être
+Ce guide s'adresse à toute personne qui doit traduire les **budgets disponibles dans
+le cadre du MOU** en **quantités de produits à commander** pour le Niger, sans être
 spécialiste de la logistique ou de la quantification (par exemple, le personnel de
 l'ambassade).
 
@@ -31,18 +31,23 @@ L'encadré jaune en haut de l'assistant rappelle la situation (octobre 2026) :
 Le lien « Hypothèses de délais utilisées » permet d'ajuster ces délais (ils ne
 changent que les dates, pas les quantités).
 
-## Étape 1 — Budget communiqué par le siège
+## Étape 1 — Budgets disponibles dans le cadre du MOU
 
-1. **FY2026** (1er octobre 2025 – 30 septembre 2026) est terminé. Indiquez si son
-   budget a servi à passer des commandes :
-   - *Non, rien n'a été commandé* : seules les sommes déjà engagées (accruals) sont
-     comptées ; le reste est **non dépensé** ;
-   - *Oui* : les quantités FY26 saisies dans la vue détaillée sont comptées.
-2. Choisissez où reporter le montant non dépensé : **en totalité sur FY2027**
-   (l'exercice en cours, commencé le 1er octobre 2026) ou réparti sur FY2027-FY2030.
-3. Pour chaque année fiscale FY2027-FY2030, saisissez le **budget annoncé par le
-   siège** et la **réserve d'assistance** (assistance technique, entreposage,
-   distribution). La dernière colonne donne le **budget pour les produits**.
+1. Pour chaque année fiscale **FY2026 à FY2030** (du 1er octobre au 30 septembre),
+   saisissez le **budget disponible** et la **réserve d'assistance** (assistance
+   technique, entreposage, distribution). La dernière colonne donne le **budget pour
+   les produits**.
+2. **Clôture de FY2026 au 30 septembre 2026** :
+   - ajoutez une ligne par **accrual** (montant engagé au 30/09/2026 : intitulé,
+     références, montant) avec « Ajouter un accrual » ; l'icône corbeille supprime
+     une ligne ;
+   - *Autres commandes FY2026 (hors accruals)* : « Aucune » (par défaut) ou
+     « Selon les quantités FY26 de la vue détaillée » ;
+   - l'outil calcule le **solde FY2026** = budget − réserve − accruals (− autres
+     commandes) ;
+   - choisissez le **traitement du solde** : *reporté en totalité sur FY2027*
+     (l'exercice en cours, commencé le 1er octobre 2026) ou *lissé sur les autres
+     années du MOU* (FY2027-FY2030).
 
 ## Étape 2 — Répartition du budget et transport
 

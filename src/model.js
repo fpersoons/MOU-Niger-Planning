@@ -60,7 +60,14 @@ export const DEFAULT_BUDGETS = {
 
 export const DEFAULT_LOGISTICS = { 2026: 'air', 2027: 'air', 2028: 'sea', 2029: 'sea', 2030: 'sea' };
 
-export const DEFAULT_ACCRUALS = { amount: 1106690, desc: 'mRDTs (RO Accruals)', refs: '', freightPct: 0 };
+// Accruals (engagements) au 30 septembre 2026 : une ou plusieurs lignes, chacune
+// avec son taux de fret aérien (ajustement fin pour caler le landed sur MFS).
+export const newAccrual = (desc = '', amount = 0) => ({
+  id: Math.random().toString(36).slice(2, 9), desc, refs: '', amount, freightPct: 0,
+});
+export const DEFAULT_ACCRUALS = { items: [{ id: 'acc1', desc: 'mRDTs (RO Accruals)', refs: '', amount: 1106690, freightPct: 0 }] };
+export const accrualsTotal = (accruals) =>
+  (accruals?.items || []).reduce((s, a) => s + num(a.amount) * (1 + num(a.freightPct) / 100), 0);
 
 // Réserve d'assistance (assistance technique, entreposage, distribution) déduite
 // du budget total de chaque exercice. 0 par défaut (budgets du cahier des charges).
@@ -82,7 +89,7 @@ export const DEFAULT_MAXIMIZE = { 2027: false, 2028: false, 2029: false, 2030: f
 export const FY26_SPENDING = ['planned', 'unspent'];
 // Report du surplus FY26 : « fy27 » = en totalité sur FY2027 ; « smooth » = ÷ 4 sur FY27-FY30.
 export const CARRYOVER = ['fy27', 'smooth'];
-export const CARRYOVER_LABEL = { fy27: 'En totalité sur FY2027', smooth: 'Lissé sur FY2027-FY2030 (÷ 4)' };
+export const CARRYOVER_LABEL = { fy27: 'En totalité sur FY2027', smooth: 'Lissé sur les autres années du MOU (FY2027-FY2030)' };
 
 // Délais d'acheminement (mois, de la commande à l'arrivée au Niger) — hypothèses
 // par défaut à valider avec GHSC-PSM. Bateau = mer jusqu'à Lomé puis route
@@ -108,7 +115,7 @@ export const defaultScenarioData = () => ({
   carryover: 'fy27',
   leadTimes: JSON.parse(JSON.stringify(DEFAULT_LEAD_TIMES)),
   needDates: { ...DEFAULT_NEED_DATES },
-  accruals: { ...DEFAULT_ACCRUALS },
+  accruals: JSON.parse(JSON.stringify(DEFAULT_ACCRUALS)),
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
   quantification: emptyRegular(),  // besoins exprimés par le Niger, FY27-FY30
   regularQtys: emptyRegular(),     // quantités saisies (méthode « manual »), FY27-FY30
@@ -120,11 +127,22 @@ export const zeroedScenarioData = (data) => ({
   commodities: Object.fromEntries(
     COMMODITIES.map((c) => [c.id, { split: 0, price: 0, air: 0, sea: 0, qty26: 0 }])
   ),
-  accruals: { amount: 0, desc: data.accruals?.desc ?? '', refs: '', freightPct: 0 },
+  accruals: { items: (data.accruals?.items || []).map((a) => ({ ...a, amount: 0, freightPct: 0 })) },
   manualQtys: emptyManual(),
   quantification: emptyRegular(),
   regularQtys: emptyRegular(),
 });
+
+/** Accruals : liste de lignes ; reprend l'ancien format à ligne unique { amount, desc, refs, freightPct }. */
+const normalizeAccruals = (acc, def) => {
+  if (Array.isArray(acc?.items)) {
+    return { items: acc.items.map((a, i) => ({ id: a.id || `acc${i + 1}`, desc: a.desc ?? '', refs: a.refs ?? '', amount: num(a.amount), freightPct: num(a.freightPct) })) };
+  }
+  if (acc && ('amount' in acc || 'desc' in acc)) {
+    return { items: [{ id: 'acc1', desc: acc.desc ?? '', refs: acc.refs ?? '', amount: num(acc.amount), freightPct: num(acc.freightPct) }] };
+  }
+  return JSON.parse(JSON.stringify(def));
+};
 
 /** Complète un scénario partiel (import JSON ancien / incomplet) avec les valeurs par défaut. */
 export const normalizeScenarioData = (d = {}) => {
@@ -150,7 +168,7 @@ export const normalizeScenarioData = (d = {}) => {
       sea: { ...def.leadTimes.sea, ...(d.leadTimes?.sea || {}) },
     },
     needDates: { ...def.needDates, ...(d.needDates || {}) },
-    accruals: { ...def.accruals, ...(d.accruals || {}) },
+    accruals: normalizeAccruals(d.accruals, def.accruals),
     manualQtys: nested('manualQtys', YEARS),
     quantification: nested('quantification', FUTURE_YEARS),
     regularQtys: nested('regularQtys', FUTURE_YEARS),
@@ -246,15 +264,20 @@ export const simulate = (data) => {
   const mode26 = logistics['2026'];
   const regular26 = REGULAR.map((c) => line(c, fy26Unspent ? 0 : Math.max(0, num(p(c.id).qty26)), num(p(c.id).price), rateFor(c.id, mode26)));
   const milda26 = fy26Unspent ? [] : mildaLines('2026');
-  const accExw = num(accruals.amount);
-  const accFreight = accExw * (num(accruals.freightPct) / 100);
-  const accrual = {
-    id: 'acc', name: accruals.desc || 'Accruals', category: 'OTHER', isAccrual: true,
-    qty: null, rate: num(accruals.freightPct), exw: accExw, freight: accFreight, landed: accExw + accFreight,
-  };
+  const accrualLines = (accruals?.items || []).map((a) => {
+    const exw = num(a.amount);
+    const freight = exw * (num(a.freightPct) / 100);
+    return {
+      id: `acc-${a.id}`, accId: a.id, name: a.desc || 'Accruals', plain: a.desc || 'Accruals', use: 'Engagement au 30/09/2026',
+      category: 'OTHER', isAccrual: true, qty: null, rate: num(a.freightPct), exw, freight, landed: exw + freight,
+    };
+  });
+  const accExw = sum(accrualLines, 'exw');
+  const accFreight = sum(accrualLines, 'freight');
   const base26 = num(budgets['2026']);
   const reserve26 = num(reserves['2026']);
-  const total26 = sum(regular26, 'landed') + sum(milda26, 'landed') + accrual.landed;
+  const accrualsLanded = sum(accrualLines, 'landed');
+  const total26 = sum(regular26, 'landed') + sum(milda26, 'landed') + accrualsLanded;
   const available26 = base26 - reserve26;
   const surplus = available26 - total26;
   const carryover = data.carryover === 'fy27' ? 'fy27' : 'smooth';
@@ -264,7 +287,7 @@ export const simulate = (data) => {
   const result = {
     2026: {
       year: '2026', mode: mode26, method: 'fy26', unspent: fy26Unspent, base: base26, reserve: reserve26, bonus: 0, available: available26,
-      lines: [...regular26, ...milda26, accrual], mildaCost: sum(milda26, 'landed'),
+      lines: [...regular26, ...milda26, ...accrualLines], mildaCost: sum(milda26, 'landed'), accrualsLanded,
       totalExw: sum(regular26, 'exw') + sum(milda26, 'exw') + accExw,
       totalFreight: sum(regular26, 'freight') + sum(milda26, 'freight') + accFreight,
       total: total26, balance: surplus,

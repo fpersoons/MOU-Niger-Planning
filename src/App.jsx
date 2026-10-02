@@ -1,13 +1,12 @@
 // ─── Planificateur Budgétaire Intrants Paludisme FY26-FY30 ──────────────────
-// GHSC-PSM — U.S. Department of State | Bureau of Global Health Security and
-// Diplomacy (GHSD). Preset couleurs : CHEMONICS (DESIGN_SYSTEM.md).
+// GHSC-PSM — MOU Niger. Preset couleurs : CHEMONICS (DESIGN_SYSTEM.md).
 // Données : JSON dans le navigateur (localStorage), multi-scénarios,
 // sauvegarde automatique ; export Excel par scénario ; import/export JSON.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CARRYOVER_LABEL, CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, defaultScenarioData,
-  normalizeScenarioData, num, quantitiesFor, simulate, splitStatus, zeroedScenarioData,
+  newAccrual, normalizeScenarioData, num, quantitiesFor, simulate, splitStatus, zeroedScenarioData,
 } from './model.js';
 import { exportScenarioXlsx, importWorkbook } from './excel.js';
 import QuantificationCard from './Quantification.jsx';
@@ -124,7 +123,11 @@ export default function App() {
     updateData((d) => ({ ...d, commodities: { ...d.commodities, [id]: { ...d.commodities[id], [field]: value } } }));
   const updateManualQty = (year, id, value) =>
     updateData((d) => ({ ...d, manualQtys: { ...d.manualQtys, [year]: { ...d.manualQtys[year], [id]: Math.max(0, Math.floor(value)) } } }));
-  const updateAccruals = (field, value) => updateData((d) => ({ ...d, accruals: { ...d.accruals, [field]: value } }));
+  // Accruals au 30/09/2026 : liste de lignes (ajout, modification, suppression)
+  const updateAccrual = (id, field, value) => updateData((d) => ({ ...d, accruals: { items: d.accruals.items.map((a) => (a.id === id ? { ...a, [field]: value } : a)) } }));
+  const addAccrual = () => updateData((d) => ({ ...d, accruals: { items: [...d.accruals.items, newAccrual('Nouvel engagement')] } }));
+  const removeAccrual = (id) => updateData((d) => ({ ...d, accruals: { items: d.accruals.items.filter((a) => a.id !== id) } }));
+  const accrualHandlers = { updateAccrual, addAccrual, removeAccrual };
   const setMode = (year, mode) => updateData((d) => ({ ...d, logistics: { ...d.logistics, [year]: mode } }));
   const setBudget = (year, value) => updateData((d) => ({ ...d, budgets: { ...d.budgets, [year]: value } }));
   const setReserve = (year, value) => updateData((d) => ({ ...d, reserves: { ...d.reserves, [year]: Math.max(0, value) } }));
@@ -253,9 +256,9 @@ export default function App() {
   const sidePanel = (
     <>
       <div className={`p-4 rounded-[1.5rem] border shadow-lg ${role(surplus).bg} ${role(surplus).border}`}>
-        <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(surplus).text} flex items-center gap-1`}><TrendingUp w={12} /> Non dépensé FY2026</p>
+        <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(surplus).text} flex items-center gap-1`}><TrendingUp w={12} /> Solde FY2026 au 30/09</p>
         <p className={`text-3xl font-normal tracking-tight ${role(surplus).text} mt-1 break-words`}>{fmtSigned(surplus, 0)}</p>
-        <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − réserve − dépenses FY26 ({data.fy26Spending === 'unspent' ? 'seules les accruals sont comptées' : 'quantités FY26 + accruals'})</p>
+        <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − réserve − accruals{data.fy26Spending === 'unspent' ? '' : ' − commandes FY26'}</p>
       </div>
       <Card>
         <p className="text-[10px] font-semibold uppercase tracking-tighter text-chem-gray2 flex items-center gap-1"><Layers w={12} className="text-chem-blue" /> Report du FY2026</p>
@@ -283,11 +286,11 @@ export default function App() {
               <img src="./assets/logo-state.webp" alt="U.S. Department of State" className="h-6 md:h-7 w-auto" />
               <div className="border-l border-chem-gray1-20 pl-4 min-w-0">
                 <h1 className="text-sm font-bold tracking-tight text-chem-gray1 flex items-center gap-1.5">
-                  <ShieldCheck w={14} className="text-chem-blue" /> Planificateur Budgétaire Intrants Paludisme FY26-FY30
+                  <ShieldCheck w={14} className="text-chem-blue" /> MOU Niger — Planificateur des intrants paludisme
                 </h1>
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-chem-gray2 flex items-center gap-1 flex-wrap">
                   <Landmark w={10} className="text-chem-darkblue" />
-                  GHSC-PSM · Bureau of Global Health Security and Diplomacy · Department of State
+                  GHSC-PSM · MOU Niger · FY2026-FY2030
                 </p>
               </div>
             </div>
@@ -350,7 +353,7 @@ export default function App() {
               <Assistant scenario={scenario} data={data} sim={simulationData} today={today} busy={busy}
                 onExport={() => handleExport()} updateData={updateData} setBudget={setBudget} setReserve={setReserve}
                 setMethod={setMethod} setMaximize={setMaximize} setMode={setMode} setYearQty={setYearQty}
-                fillRegularQtys={fillRegularQtys} updateAccruals={updateAccruals} />
+                fillRegularQtys={fillRegularQtys} accrualHandlers={accrualHandlers} />
             </main>
             <aside className="lg:col-span-3 space-y-3">{sidePanel}</aside>
           </div>
@@ -484,18 +487,18 @@ export default function App() {
                       </div>
                       {y === '2026' && (
                         <div className="grid grid-cols-2 gap-1.5">
-                          <label className="text-[9px] font-semibold uppercase text-chem-gray2">FY26 dépensé ?
+                          <label className="text-[9px] font-semibold uppercase text-chem-gray2">Dépenses FY26
                             <select value={data.fy26Spending} onChange={(e) => updateData((d) => ({ ...d, fy26Spending: e.target.value }))} aria-label="Utilisation du budget FY2026"
                               className="w-full block mt-0.5 bg-white border border-chem-gray1-20 rounded-md px-1 py-0.5 text-[10px] font-semibold normal-case text-chem-darkblue focus:outline-none">
-                              <option value="unspent">Non (accruals seules)</option>
-                              <option value="planned">Oui (quantités FY26)</option>
+                              <option value="unspent">Accruals seules</option>
+                              <option value="planned">+ quantités FY26</option>
                             </select>
                           </label>
-                          <label className="text-[9px] font-semibold uppercase text-chem-gray2">Report du surplus
+                          <label className="text-[9px] font-semibold uppercase text-chem-gray2">Solde FY26
                             <select value={data.carryover} onChange={(e) => updateData((d) => ({ ...d, carryover: e.target.value }))} aria-label="Report du surplus FY2026"
                               className="w-full block mt-0.5 bg-white border border-chem-gray1-20 rounded-md px-1 py-0.5 text-[10px] font-semibold normal-case text-chem-darkblue focus:outline-none">
                               <option value="fy27">Tout sur FY2027</option>
-                              <option value="smooth">÷ 4 sur FY27-FY30</option>
+                              <option value="smooth">Lissé FY27-FY30</option>
                             </select>
                           </label>
                         </div>
@@ -516,7 +519,7 @@ export default function App() {
             {YEARS.map((y) => (
               <YearTable key={y} yr={simulationData.years[y]} isOpen={open[y]}
                 delivery={assessDelivery({ year: y, mode: data.logistics[y], leadTimes: data.leadTimes, needMonth: data.needDates[y], today })} onToggle={() => setOpen((o) => ({ ...o, [y]: !o[y] }))}
-                data={data} updateAccruals={updateAccruals} updateManualQty={updateManualQty}
+                data={data} accrualHandlers={accrualHandlers} updateManualQty={updateManualQty}
                 updateRegularQty={(id, v) => setYearQty('regularQtys', y, id, v)} fillRegularQtys={(src) => fillRegularQtys(y, src)} />
             ))}
           </main>
@@ -538,7 +541,7 @@ export default function App() {
 }
 
 // ─── Tableau d'un exercice ───────────────────────────────────────────────────
-function YearTable({ yr, delivery, isOpen, onToggle, data, updateAccruals, updateManualQty, updateRegularQty, fillRegularQtys }) {
+function YearTable({ yr, delivery, isOpen, onToggle, data, accrualHandlers, updateManualQty, updateRegularQty, fillRegularQtys }) {
   const r = role(yr.balance);
   const manual = yr.method === 'manual';
   const hasNeed = yr.lines.some((l) => l.need > 0);
@@ -605,7 +608,9 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, updateAccruals, updat
             <tbody>
               {CATEGORIES.map((cat) => {
                 const lines = yr.lines.filter((l) => l.category === cat);
-                if (!lines.length) return null;
+                const accrualsHere = cat === 'OTHER' && yr.year === '2026';
+                if (!lines.length && !accrualsHere) return null;
+                const acc = (l) => data.accruals.items.find((a) => a.id === l.accId) || {};
                 return [
                   <tr key={cat} className="bg-chem-gray1-10">
                     <td colSpan={5} className="px-2 py-1 text-[10px] font-semibold italic text-chem-gray1">{CAT_LABEL[cat]}</td>
@@ -615,9 +620,13 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, updateAccruals, updat
                       <td className="px-2 py-1 text-[11px] font-semibold text-left">
                         {l.isAccrual ? (
                           <div className="flex flex-col gap-0.5">
-                            <input value={data.accruals.desc} onChange={(e) => updateAccruals('desc', e.target.value)} aria-label="Intitulé des accruals"
-                              className="bg-transparent border-b border-dashed border-chem-gray1-40 p-0 text-[11px] font-semibold focus:outline-none focus:border-chem-darkblue w-full" />
-                            <input value={data.accruals.refs} onChange={(e) => updateAccruals('refs', e.target.value)} placeholder="Références (facultatif)" aria-label="Références des accruals"
+                            <span className="flex items-center gap-1">
+                              <input value={acc(l).desc ?? ''} onChange={(e) => accrualHandlers.updateAccrual(l.accId, 'desc', e.target.value)} aria-label="Intitulé de l’accrual"
+                                className="bg-transparent border-b border-dashed border-chem-gray1-40 p-0 text-[11px] font-semibold focus:outline-none focus:border-chem-darkblue w-full" />
+                              <button type="button" onClick={() => { if (window.confirm(`Supprimer l’accrual « ${acc(l).desc || 'sans intitulé'} » ?`)) accrualHandlers.removeAccrual(l.accId); }}
+                                aria-label={`Supprimer l’accrual ${acc(l).desc || ''}`} className="p-1 rounded-lg text-chem-gray1-40 hover:text-chem-eggplant hover:bg-chem-orange2-15 transition-all"><Trash2 w={11} /></button>
+                            </span>
+                            <input value={acc(l).refs ?? ''} onChange={(e) => accrualHandlers.updateAccrual(l.accId, 'refs', e.target.value)} placeholder="Références (facultatif)" aria-label="Références de l’accrual"
                               className="bg-transparent border-none p-0 text-[9px] font-normal text-chem-gray2 focus:outline-none w-full" />
                           </div>
                         ) : (
@@ -641,14 +650,14 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, updateAccruals, updat
                       </td>
                       <td className={td}>
                         {l.isAccrual
-                          ? <NumInput value={data.accruals.amount} onChange={(v) => updateAccruals('amount', v)} ariaLabel="Montant EXW des accruals" className="w-32" />
+                          ? <NumInput value={acc(l).amount} onChange={(v) => accrualHandlers.updateAccrual(l.accId, 'amount', v)} ariaLabel={`Montant EXW — ${acc(l).desc || 'accrual'}`} className="w-32" />
                           : fmtUsd(l.exw)}
                       </td>
                       <td className={td}>
                         {l.isAccrual ? (
                           <span className="inline-flex flex-col items-end gap-0.5">
                             <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase text-chem-gray2">
-                              <Plane w={10} /> <NumInput value={data.accruals.freightPct} onChange={(v) => updateAccruals('freightPct', v)} ariaLabel="Taux de fret aérien des accruals (%)" className="w-20" /> %
+                              <Plane w={10} /> <NumInput value={acc(l).freightPct} onChange={(v) => accrualHandlers.updateAccrual(l.accId, 'freightPct', v)} ariaLabel={`Taux de fret aérien — ${acc(l).desc || 'accrual'} (%)`} className="w-20" /> %
                             </span>
                             {fmtUsd(l.freight)}
                           </span>
@@ -659,6 +668,14 @@ function YearTable({ yr, delivery, isOpen, onToggle, data, updateAccruals, updat
                       <td className={`${td} text-chem-gray1`}>{fmtUsd(l.landed)}</td>
                     </tr>
                   )),
+                  accrualsHere && (
+                    <tr key="add-accrual" className="border-b border-chem-gray1-10">
+                      <td colSpan={5} className="px-2 py-1">
+                        <button type="button" onClick={accrualHandlers.addAccrual}
+                          className="flex items-center gap-1 text-[10px] font-semibold uppercase text-chem-darkblue hover:underline"><Plus w={11} /> Ajouter un accrual au 30/09/2026</button>
+                      </td>
+                    </tr>
+                  ),
                 ];
               })}
             </tbody>

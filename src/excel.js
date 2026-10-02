@@ -4,7 +4,7 @@
 
 import {
   CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
-  CARRYOVER_LABEL, normalizeScenarioData, parseVal, simulate,
+  CARRYOVER_LABEL, newAccrual, normalizeScenarioData, parseVal, simulate,
 } from './model.js';
 import { STATUS_LABEL, assessDelivery, fmtDay, fmtMonth } from './logistics.js';
 
@@ -97,7 +97,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   ot.getCell(1).font = { ...FONT, bold: true };
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
-    `FY2026 : ${data.fy26Spending === 'unspent' ? 'budget non utilisé pour des commandes (seules les accruals sont comptées)' : 'quantités FY26 commandées'} ; non dépensé : ${Math.round(sim.surplus).toLocaleString('fr-FR')} $, reporté ${lowerFirst(CARRYOVER_LABEL[sim.carryover])}.`,
+    `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accrualsLanded).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde ${Math.round(sim.surplus).toLocaleString('fr-FR')} $, reporté ${lowerFirst(CARRYOVER_LABEL[sim.carryover])}.`,
     `Délais estimés de la commande à l'arrivée au Niger : avion ${data.leadTimes.air.min}-${data.leadTimes.air.max} mois ; bateau + route via Lomé (Togo - Burkina Faso - Niger, frontière Bénin fermée) ${data.leadTimes.sea.min}-${data.leadTimes.sea.max} mois. Hypothèses à confirmer avec GHSC-PSM.`,
   ]) { const r = wo.addRow([txt]); r.getCell(1).font = FONT; }
   wo.addRow([]);
@@ -143,7 +143,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   t.getCell(1).font = { ...FONT, bold: true };
   const s = ws.addRow([`Scénario : ${scenario.name}`]);
   s.getCell(1).font = FONT;
-  const g = ws.addRow(['GHSC-PSM — U.S. Department of State | Bureau of Global Health Security and Diplomacy (GHSD)']);
+  const g = ws.addRow(['GHSC-PSM — MOU Niger']);
   g.getCell(1).font = FONT;
   ws.addRow([]);
 
@@ -201,13 +201,17 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
       row.eachCell({ includeEmpty: true }, (cell, i) => { cell.font = FONT; if (i > 1) cell.numFmt = QTY; });
     }
   }
+  // Accruals (engagements) au 30/09/2026 : une ligne par engagement
   wp.addRow([]);
-  const acc = [
-    ['Accruals — Intitulé', data.accruals.desc],
-    ['Accruals — Références', data.accruals.refs],
-    ['Accruals — Montant EXW ($)', data.accruals.amount, MONEY],
-    ['Accruals — Taux fret aérien (%)', pct(data.accruals.freightPct), PCT],
-  ];
+  const ha = wp.addRow(['Accruals au 30/09/2026', 'Références', 'Montant EXW ($)', 'Taux fret aérien (%)']);
+  ha.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+  for (const a of data.accruals.items) {
+    const row = wp.addRow([a.desc || 'Accruals', a.refs || '', a.amount, pct(a.freightPct)]);
+    row.eachCell({ includeEmpty: true }, (c) => (c.font = FONT));
+    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = PCT;
+  }
+  wp.addRow([]);
+  const acc = [];
   acc.push(
     ['Options — FY2026 dépensé', data.fy26Spending === 'unspent' ? 'Non' : 'Oui'],
     ['Options — Report du surplus FY2026', CARRYOVER_LABEL[data.carryover]],
@@ -256,6 +260,7 @@ const findCol = (header, tests) => header.findIndex((h) => tests.some((t) => t(n
 export const parseWorkbookRows = (sheets, base) => {
   const data = normalizeScenarioData(base);
   let found = 0;
+  let legacyAcc = null;
   for (const rows of sheets) {
     for (let i = 0; i < rows.length; i++) {
       const header = rows[i] || [];
@@ -330,13 +335,23 @@ export const parseWorkbookRows = (sheets, base) => {
         else if (mode && /max/.test(first)) data.leadTimes[mode].max = parseVal(header[1]);
         else if (y && /^\d{4}-\d{2}/.test(String(header[1] ?? ''))) data.needDates[y] = String(header[1]).slice(0, 7);
       }
-      // Lignes Accruals
-      if (first.startsWith('accruals')) {
+      // Tableau des accruals au 30/09/2026 (une ligne par engagement, jusqu'à la ligne vide)
+      if (first === 'accrualsau30092026') {
+        const items = [];
+        for (let j = i + 1; j < rows.length; j++) {
+          const r = rows[j] || [];
+          if (r.every((v) => v === null || v === undefined || v === '')) break;
+          items.push({ ...newAccrual(String(r[0] ?? ''), parseVal(r[2])), refs: String(r[1] ?? ''), freightPct: parseVal(r[3], true) });
+        }
+        data.accruals = { items };
+      } else if (first.startsWith('accruals')) {
+        // Ancien format : une seule ligne « Accruals — Intitulé / Références / Montant / Taux »
         const v = header[1];
-        if (first.includes('intitule')) data.accruals.desc = String(v ?? '');
-        else if (first.includes('reference')) data.accruals.refs = String(v ?? '');
-        else if (first.includes('montant')) data.accruals.amount = parseVal(v);
-        else if (first.includes('fret') || first.includes('taux')) data.accruals.freightPct = parseVal(v, true);
+        if (!legacyAcc) { legacyAcc = newAccrual(); data.accruals = { items: [legacyAcc] }; }
+        if (first.includes('intitule')) legacyAcc.desc = String(v ?? '');
+        else if (first.includes('reference')) legacyAcc.refs = String(v ?? '');
+        else if (first.includes('montant')) legacyAcc.amount = parseVal(v);
+        else if (first.includes('fret') || first.includes('taux')) legacyAcc.freightPct = parseVal(v, true);
       }
     }
   }

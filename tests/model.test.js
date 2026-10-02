@@ -80,8 +80,9 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.logistics['2027'] = 'sea';
   d.manualQtys['2027'][12] = 4321;
   d.budgets['2029'] = 8000000;
-  d.accruals.freightPct = 2.35;
-  d.accruals.desc = 'Test accruals';
+  d.accruals.items[0].freightPct = 2.35;
+  d.accruals.items[0].desc = 'Test accruals';
+  d.accruals.items.push({ id: 'x2', desc: 'Second engagement', refs: 'RO-42', amount: 250000, freightPct: 0 });
   d.reserves['2028'] = 1600000;
   d.methods['2028'] = 'quantif';
   d.methods['2030'] = 'manual';
@@ -106,9 +107,12 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.deepEqual(data.logistics, d.logistics);
   assert.equal(data.budgets['2029'], 8000000);
   assert.equal(data.manualQtys['2027'][12], 4321);
-  close(data.accruals.freightPct, 2.35);
-  assert.equal(data.accruals.desc, 'Test accruals');
-  close(data.accruals.amount, 1106690);
+  assert.equal(data.accruals.items.length, 2);
+  close(data.accruals.items[0].freightPct, 2.35);
+  assert.equal(data.accruals.items[0].desc, 'Test accruals');
+  close(data.accruals.items[0].amount, 1106690);
+  assert.equal(data.accruals.items[1].refs, 'RO-42');
+  close(data.accruals.items[1].amount, 250000);
   assert.equal(data.reserves['2028'], 1600000);
   assert.deepEqual(data.methods, d.methods);
   assert.equal(data.quantification['2028'][3], 150000);
@@ -230,4 +234,14 @@ test('délais : exercice clos, à temps, risque, en retard', () => {
   assert.equal(s29.orderBy.getFullYear(), 2027);
   assert.equal(s29.orderBy.getMonth(), 11);
   assert.deepEqual(fiscalYear('2027').start, new Date(2026, 9, 1));
+});
+
+test('accruals : plusieurs lignes, et reprise de l’ancien format à ligne unique', () => {
+  const d = defaultScenarioData();
+  d.accruals.items.push({ id: 'b', desc: 'B', refs: '', amount: 100000, freightPct: 10 });
+  const sim = simulate(d);
+  close(sim.years['2026'].total, 1106690 + 110000);
+  assert.equal(sim.years['2026'].lines.filter((l) => l.isAccrual).length, 2);
+  const old = normalizeScenarioData({ accruals: { amount: 5000, desc: 'Ancien', refs: 'R', freightPct: 1 } });
+  assert.deepEqual(old.accruals.items.map((a) => [a.desc, a.amount, a.freightPct]), [['Ancien', 5000, 1]]);
 });

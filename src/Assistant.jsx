@@ -1,6 +1,6 @@
 // ─── Assistant pas à pas ─────────────────────────────────────────────────────
-// Vue destinée aux non-spécialistes (ex. personnel de l'ambassade) : on part du
-// budget communiqué par le siège pour arriver aux quantités à commander, en
+// Vue destinée aux non-spécialistes (ex. personnel de l'ambassade) : on part des
+// budgets disponibles dans le cadre du MOU pour arriver aux quantités à commander, en
 // langage courant, avec les délais d'acheminement réalistes vers le Niger.
 
 import { useMemo, useState } from 'react';
@@ -11,7 +11,7 @@ import { STATUS_LABEL, addMonths, assessDelivery, fmtDay, fmtMonth, fiscalYear }
 import QuantificationCard from './Quantification.jsx';
 import {
   AlertTriangle, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clipboard, Compass,
-  FileSpreadsheet, ListChecks, Plane, Sliders, Truck, Wallet,
+  FileSpreadsheet, ListChecks, Plane, Plus, Sliders, Trash2, Truck, Wallet,
 } from './icons.jsx';
 import { Card, MODE_PLAIN, NEG, NumInput, POS, fmtNum, fmtUsd, role } from './ui.jsx';
 
@@ -88,7 +88,7 @@ const emailText = (scenarioName, yr, a, data) => {
   lines.push(`MOU Niger — Quantités proposées FY${yr.year} (scénario « ${scenarioName} »)`);
   const parts = [`budget ${fmtUsd(yr.base, 0)}`];
   if (yr.reserve) parts.push(`− réserve assistance ${fmtUsd(yr.reserve, 0)}`);
-  if (yr.bonus) parts.push(`${yr.bonus >= 0 ? '+' : '−'} report FY2026 ${fmtUsd(Math.abs(yr.bonus), 0)}`);
+  if (yr.bonus) parts.push(`${yr.bonus >= 0 ? '+' : '−'} report du solde FY2026 ${fmtUsd(Math.abs(yr.bonus), 0)}`);
   lines.push(`Budget disponible pour les produits : ${fmtUsd(yr.available, 0)} (${parts.join(' ')})`);
   lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()} — ${deliverySentence(a, yr.mode)}`);
   lines.push('');
@@ -115,7 +115,7 @@ const copyText = async (text) => {
 // ─── Vue principale ──────────────────────────────────────────────────────────
 export default function Assistant({
   scenario, data, sim, today, busy, onExport, updateData, setBudget, setReserve, setMethod, setMaximize, setMode,
-  setYearQty, fillRegularQtys, updateAccruals,
+  setYearQty, fillRegularQtys, accrualHandlers,
 }) {
   const [copied, setCopied] = useState(null);
   const lt = data.leadTimes;
@@ -151,7 +151,7 @@ export default function Assistant({
           <div className="flex-1 min-w-[260px]">
             <h2 className="text-[15px] font-bold text-chem-gray1 flex items-center gap-2"><Compass w={18} className="text-chem-blue" /> Préparer une commande en 3 étapes</h2>
             <p className="text-[12px] text-chem-gray2 mt-1 leading-relaxed">
-              À partir du budget communiqué par le siège, l’outil calcule les quantités de produits antipaludiques que l’on peut commander
+              À partir des budgets disponibles dans le cadre du MOU, l’outil calcule les quantités de produits antipaludiques que l’on peut commander
               pour le Niger, et indique quand elles pourraient arriver. Aucune connaissance en logistique n’est nécessaire :
               les valeurs techniques (prix, coûts de transport) sont déjà renseignées. Tout est enregistré automatiquement.
             </p>
@@ -182,62 +182,47 @@ export default function Assistant({
         <LeadTimeEditor lt={lt} setLead={setLead} />
       </section>
 
-      {/* ─── Étape 1 : budget ─── */}
-      <Step n="1" id="etape-budget" icon={Wallet} title="Budget communiqué par le siège"
-        subtitle="Saisissez le budget de chaque année fiscale américaine (du 1er octobre au 30 septembre) et la part réservée à l’assistance.">
-        <div className="rounded-xl border border-chem-gray1-20 bg-chem-gray1-5 p-2.5 mb-3">
-          <p className="text-[11px] font-semibold text-chem-gray1 flex flex-wrap items-center gap-2">
-            FY2026 <span className="text-[9px] font-normal text-chem-gray2">({fyPeriod('2026')})</span> <StatusBadge status="closed" />
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="text-chem-gray2">Le budget FY2026 a-t-il servi à passer des commandes ?</span>
-            <Segmented label="Utilisation du budget FY2026" value={data.fy26Spending}
-              onChange={(v) => updateData((d) => ({ ...d, fy26Spending: v }))}
-              options={[{ value: 'unspent', label: 'Non, rien n’a été commandé' }, { value: 'planned', label: 'Oui, selon les quantités FY26 saisies' }]} />
-          </div>
-          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] tabular-nums">
-            <div><span className="block text-[9px] font-semibold uppercase text-chem-gray2">Budget FY2026</span>{fmtUsd(y26.base, 0)}</div>
-            <div>
-              <span className="block text-[9px] font-semibold uppercase text-chem-gray2" title="Montants déjà engagés (Accruals / RO), comptés même si rien d’autre n’a été commandé">Déjà engagé (accruals)</span>
-              <NumInput value={data.accruals.amount} onChange={(v) => updateAccruals('amount', v)} ariaLabel="Montant déjà engagé FY2026 (accruals)" className="w-32" />
-            </div>
-            <div><span className="block text-[9px] font-semibold uppercase text-chem-gray2">Dépenses FY2026 comptées</span>{fmtUsd(y26.total, 0)}</div>
-            <div><span className={`block text-[9px] font-semibold uppercase ${role(sim.surplus).text}`}>Non dépensé, à reporter</span><span className={`text-[13px] ${role(sim.surplus).text}`}>{fmtUsd(sim.surplus, 0)}</span></div>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="text-chem-gray2">Le montant non dépensé est reporté :</span>
-            <Segmented label="Report du budget non dépensé FY2026" value={data.carryover}
-              onChange={(v) => updateData((d) => ({ ...d, carryover: v }))}
-              options={[{ value: 'fy27', label: CARRYOVER_LABEL.fy27 }, { value: 'smooth', label: CARRYOVER_LABEL.smooth }]} />
-          </div>
-        </div>
-
+      {/* ─── Étape 1 : budgets du MOU ─── */}
+      <Step n="1" id="etape-budget" icon={Wallet} title="Budgets disponibles dans le cadre du MOU"
+        subtitle="Saisissez le budget disponible pour chaque année fiscale (du 1er octobre au 30 septembre), y compris FY2026, et la part réservée à l’assistance.">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] text-[11px] tabular-nums">
             <thead>
               <tr className="text-[9px] font-semibold uppercase text-chem-gray2 border-b border-chem-gray1-20">
                 <th className="px-2 py-1.5 text-left">Année fiscale</th>
-                <th className="px-2 py-1.5 text-right">Budget annoncé par le siège</th>
+                <th className="px-2 py-1.5 text-right">Budget disponible (MOU)</th>
                 <th className="px-2 py-1.5 text-right" title="Assistance technique, entreposage, distribution">Réserve assistance<span className="block normal-case font-normal">(assistance technique, entreposage, distribution)</span></th>
-                <th className="px-2 py-1.5 text-right">Report FY2026</th>
+                <th className="px-2 py-1.5 text-right">Report du solde FY2026</th>
                 <th className="px-2 py-1.5 text-right">= Budget pour les produits</th>
               </tr>
             </thead>
             <tbody>
-              {FUTURE_YEARS.map((y) => {
+              {['2026', ...FUTURE_YEARS].map((y) => {
                 const yr = sim.years[y];
-                const current = today >= fiscalYear(y).start && today <= fiscalYear(y).end;
+                const fy = fiscalYear(y);
+                const current = today >= fy.start && today <= fy.end;
+                const closed = today > fy.end;
                 return (
-                  <tr key={y} className="border-b border-chem-gray1-10">
+                  <tr key={y} className={`border-b border-chem-gray1-10 ${closed ? 'bg-chem-gray1-5' : ''}`}>
                     <td className="px-2 py-1.5">
                       <span className="font-semibold">FY{y}</span>
                       {current && <span className="ml-1.5 px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full bg-chem-blue-10 text-chem-darkblue border border-chem-blue-20">en cours</span>}
+                      {closed && <span className="ml-1.5 px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full bg-chem-gray1-10 text-chem-gray2 border border-chem-gray1-20">clos</span>}
                       <span className="block text-[9px] text-chem-gray2">{fyPeriod(y)}</span>
                     </td>
-                    <td className="px-2 py-1.5 text-right"><NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget annoncé FY${y}`} className="w-32" /></td>
+                    <td className="px-2 py-1.5 text-right"><NumInput value={data.budgets[y]} onChange={(v) => setBudget(y, v)} ariaLabel={`Budget disponible FY${y}`} className="w-32" /></td>
                     <td className="px-2 py-1.5 text-right"><NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel={`Réserve assistance FY${y}`} className="w-32" /></td>
-                    <td className="px-2 py-1.5 text-right text-chem-gray2">{yr.bonus ? `${yr.bonus > 0 ? '+' : '−'} ${fmtUsd(Math.abs(yr.bonus), 0)}` : '—'}</td>
-                    <td className={`px-2 py-1.5 text-right text-[13px] ${yr.available < 0 ? NEG.text : 'text-chem-gray1'}`}>{fmtUsd(yr.available, 0)}</td>
+                    {y === '2026' ? (
+                      <td className="px-2 py-1.5 text-right text-[10px] text-chem-gray2" colSpan={2}>
+                        Solde au 30/09/2026 : <span className={`text-[12px] ${role(sim.surplus).text}`}>{fmtUsd(sim.surplus, 0)}</span>
+                        <span className="block text-[9px]">voir la clôture ci-dessous</span>
+                      </td>
+                    ) : (
+                      <>
+                        <td className="px-2 py-1.5 text-right text-chem-gray2">{yr.bonus ? `${yr.bonus > 0 ? '+' : '−'} ${fmtUsd(Math.abs(yr.bonus), 0)}` : '—'}</td>
+                        <td className={`px-2 py-1.5 text-right text-[13px] ${yr.available < 0 ? NEG.text : 'text-chem-gray1'}`}>{fmtUsd(yr.available, 0)}</td>
+                      </>
+                    )}
                   </tr>
                 );
               })}
@@ -249,6 +234,57 @@ export default function Assistant({
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Clôture FY2026 : accruals et traitement du solde */}
+        <div className="mt-3 rounded-xl border border-chem-gray1-20 bg-chem-gray1-5 p-2.5">
+          <p className="text-[12px] font-bold text-chem-gray1 flex items-center gap-1.5"><Calendar w={13} className="text-chem-darkblue" /> Clôture de FY2026 au 30 septembre 2026</p>
+
+          <p className="mt-2 text-[10px] font-semibold uppercase text-chem-gray2">Accruals (montants engagés au 30/09/2026)</p>
+          <div className="mt-1 space-y-1">
+            {data.accruals.items.length === 0 && <p className="text-[10px] italic text-chem-gray2">Aucun accrual — cliquez sur « Ajouter un accrual ».</p>}
+            {data.accruals.items.map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center gap-2 bg-white rounded-lg border border-chem-gray1-20 px-2 py-1">
+                <input value={a.desc} onChange={(e) => accrualHandlers.updateAccrual(a.id, 'desc', e.target.value)} placeholder="Intitulé (ex. TDR — RO)" aria-label="Intitulé de l’accrual"
+                  className="flex-1 min-w-[160px] bg-transparent border-none p-0 text-[11px] font-semibold focus:outline-none" />
+                <input value={a.refs} onChange={(e) => accrualHandlers.updateAccrual(a.id, 'refs', e.target.value)} placeholder="Références (facultatif)" aria-label="Références de l’accrual"
+                  className="w-36 bg-transparent border-none p-0 text-[10px] text-chem-gray2 focus:outline-none" />
+                <NumInput value={a.amount} onChange={(v) => accrualHandlers.updateAccrual(a.id, 'amount', v)} ariaLabel={`Montant — ${a.desc || 'accrual'}`} className="w-32" />
+                <span className="text-[10px] text-chem-gray2">$</span>
+                <button type="button" onClick={() => { if (window.confirm(`Supprimer l’accrual « ${a.desc || 'sans intitulé'} » ?`)) accrualHandlers.removeAccrual(a.id); }}
+                  aria-label={`Supprimer l’accrual ${a.desc}`} className="p-1 rounded-lg text-chem-gray1-40 hover:text-chem-eggplant hover:bg-chem-orange2-15 transition-all"><Trash2 w={12} /></button>
+              </div>
+            ))}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button type="button" onClick={accrualHandlers.addAccrual}
+                className="flex items-center gap-1 px-2 py-1 bg-white border border-chem-blue-20 rounded-xl font-semibold text-[10px] uppercase text-chem-darkblue hover:bg-chem-blue-10 transition-all">
+                <Plus w={11} /> Ajouter un accrual
+              </button>
+              <span className="text-[10px] text-chem-gray2">Total des accruals : <span className="text-[12px] text-chem-gray1">{fmtUsd(y26.accrualsLanded, 0)}</span></span>
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-chem-gray2">Autres commandes FY2026 (hors accruals) :</span>
+            <Segmented label="Autres commandes FY2026" value={data.fy26Spending}
+              onChange={(v) => updateData((d) => ({ ...d, fy26Spending: v }))}
+              options={[{ value: 'unspent', label: 'Aucune' }, { value: 'planned', label: 'Selon les quantités FY26 de la vue détaillée' }]} />
+          </div>
+
+          <p className="mt-2 text-[11px] text-chem-gray1 tabular-nums">
+            Budget FY2026 {fmtUsd(y26.base, 0)}
+            {y26.reserve ? ` − réserve ${fmtUsd(y26.reserve, 0)}` : ''}
+            {` − accruals ${fmtUsd(y26.accrualsLanded, 0)}`}
+            {data.fy26Spending === 'planned' ? ` − commandes ${fmtUsd(y26.total - y26.accrualsLanded, 0)}` : ''}
+            {' = '}<span className={`text-[13px] ${role(sim.surplus).text}`}>solde {fmtUsd(sim.surplus, 0)}</span>
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-chem-gray2">Traitement du solde FY2026 :</span>
+            <Segmented label="Traitement du solde FY2026" value={data.carryover}
+              onChange={(v) => updateData((d) => ({ ...d, carryover: v }))}
+              options={[{ value: 'fy27', label: 'Reporté en totalité sur FY2027' }, { value: 'smooth', label: 'Lissé sur les autres années du MOU (FY2027-FY2030)' }]} />
+          </div>
         </div>
       </Step>
 
@@ -508,8 +544,8 @@ function OrderCard({ yr, a, data, onCopy, onQty, onMildaQty, onAdjust, onFill })
 const TERMS = [
   ['Année fiscale (FY)', 'Année budgétaire du gouvernement américain, du 1er octobre au 30 septembre. FY2027 = 1er octobre 2026 – 30 septembre 2027.'],
   ['Réserve d’assistance', 'Partie du budget réservée à l’assistance technique, à l’entreposage et à la distribution ; elle ne sert pas à acheter des produits.'],
-  ['Report FY2026', 'Budget FY2026 non dépensé, ajouté au budget des années suivantes.'],
-  ['Accruals (engagements)', 'Montants déjà engagés sur FY2026 (commandes en cours de comptabilisation) ; ils restent comptés même si rien d’autre n’a été commandé.'],
+  ['Solde FY2026', 'Budget FY2026 non utilisé au 30 septembre 2026 (après réserve et accruals), reporté sur FY2027 ou lissé sur les autres années du MOU.'],
+  ['Accruals', 'Montants engagés au 30 septembre 2026 sur le budget FY2026 (commandes en cours de comptabilisation) ; ils sont déduits avant de calculer le solde.'],
   ['Demande du Niger (quantification)', 'Quantités que le Niger a calculées pour couvrir ses besoins et qu’il demande au gouvernement américain.'],
   ['Répartition habituelle (split FY25)', 'Part de chaque produit dans la valeur des achats de FY25, utilisée pour répartir un nouveau budget.'],
   ['Couverture', 'Quantité commandée ÷ quantité demandée par le Niger. 100 % = la demande est entièrement couverte.'],

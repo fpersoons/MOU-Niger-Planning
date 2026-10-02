@@ -1,8 +1,7 @@
 # MOU Niger Planning — Planificateur Budgétaire Intrants Paludisme FY26-FY30
 
 Outil de simulation des acquisitions d'intrants antipaludiques sur cinq années
-fiscales (FY2026-FY2030) pour le programme **GHSC-PSM** (U.S. Department of State —
-Bureau of Global Health Security and Diplomacy).
+fiscales (FY2026-FY2030) dans le cadre du MOU Niger (programme **GHSC-PSM**).
 
 - Report lissé du surplus FY26 sur FY27-FY30 (surplus / 4).
 - Arbitrage du fret Air / Mer par exercice ; MILDA uniquement par mer, en saisie manuelle.
