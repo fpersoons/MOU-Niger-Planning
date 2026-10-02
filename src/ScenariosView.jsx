@@ -1,33 +1,26 @@
 // ─── Vue 3 : scénarios ───────────────────────────────────────────────────────
 // Par année fiscale FY2027-FY2030 : quantités générées automatiquement selon le
 // split PSN (tout le budget), ou quantités maximales achetables ajustées à la main.
-// Transport, date de besoin, statut de livraison et quantités à commander.
+// Transport (avion / bateau + route) et quantités à commander.
 
-import { useMemo, useState } from 'react';
-import { CARRY_LABEL, FUTURE_YEARS, REGULAR, num, psnSplit, simulate } from './model.js';
-import { assessDelivery, fmtMonth } from './logistics.js';
-import { AlertTriangle, Calendar, Calculator, Clipboard, FileSpreadsheet, ListChecks, Plane, RotateCcw, Truck } from './icons.jsx';
+import { useState } from 'react';
+import { CARRY_LABEL, FUTURE_YEARS, REGULAR, num, psnSplit } from './model.js';
+import { fiscalYear } from './logistics.js';
+import { AlertTriangle, Calculator, Clipboard, FileSpreadsheet, Info, ListChecks, Plane, RotateCcw, Truck } from './icons.jsx';
 import { MODE_PLAIN, NEG, NumInput, POS, fmtNum, fmtUsd, role } from './ui.jsx';
-import { ModeIcon, Section, Segmented, StatusBadge, copyText, deliverySentence, emailText } from './common.jsx';
+import { Section, Segmented, copyText, emailText } from './common.jsx';
 
 export default function ScenariosView({
-  scenario, data, sim, today, busy, onExport, updateData, setMode, setMethod, setYearQty, fillRegularQtys, goToLogistics,
+  scenario, data, sim, today, busy, onExport, setMode, setMethod, setYearQty, fillRegularQtys, goToLogistics,
 }) {
   const [copied, setCopied] = useState(null);
-  const deliveries = useMemo(() => Object.fromEntries(FUTURE_YEARS.map((y) => [y,
-    assessDelivery({ year: y, mode: data.logistics[y], leadTimes: data.leadTimes, needMonth: data.needDates[y], today })])), [data.logistics, data.needDates, data.leadTimes, today]);
-  // Effet du mode de transport inverse (pour comparer).
-  const altSims = useMemo(() => Object.fromEntries(FUTURE_YEARS.map((y) => {
-    const other = data.logistics[y] === 'air' ? 'sea' : 'air';
-    return [y, { mode: other, yr: simulate({ ...data, logistics: { ...data.logistics, [y]: other } }).years[y] }];
-  })), [data]);
-
+  // Année à venir : première année du MOU qui n'est pas encore terminée.
+  const nextYear = FUTURE_YEARS.find((y) => today <= fiscalYear(y).end);
   const doCopy = async (y) => {
-    const ok = await copyText(emailText(scenario.name, sim.years[y], deliveries[y], data));
+    const ok = await copyText(emailText(scenario.name, sim.years[y]));
     setCopied(ok ? y : 'error');
     setTimeout(() => setCopied(null), 3000);
   };
-  const setNeed = (y, v) => updateData((d) => ({ ...d, needDates: { ...d.needDates, [y]: v } }));
 
   return (
     <div className="space-y-3">
@@ -37,23 +30,22 @@ export default function ScenariosView({
         </p>
       )}
       {FUTURE_YEARS.map((y) => (
-        <YearScenario key={y} yr={sim.years[y]} a={deliveries[y]} alt={altSims[y]} data={data} today={today}
+        <YearScenario key={y} yr={sim.years[y]} data={data} upcoming={y === nextYear}
           onMode={(m) => setMode(y, m)}
           onMethod={(m) => (m === 'manual' ? fillRegularQtys(y, 'current') : setMethod(y, m))}
-          onNeed={(v) => setNeed(y, v)}
           onQty={(id, v) => setYearQty('regularQtys', y, id, v)}
           onMildaQty={(id, v) => setYearQty('manualQtys', y, id, v)}
           onFill={(src) => fillRegularQtys(y, src)}
           onCopy={() => doCopy(y)}
           goToLogistics={goToLogistics} />
       ))}
-      <Summary sim={sim} deliveries={deliveries} busy={busy} onExport={onExport} />
+      <Summary sim={sim} busy={busy} onExport={onExport} />
     </div>
   );
 }
 
 // ─── Scénario d'une année ────────────────────────────────────────────────────
-function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty, onMildaQty, onFill, onCopy, goToLogistics }) {
+function YearScenario({ yr, data, upcoming, onMode, onMethod, onQty, onMildaQty, onFill, onCopy, goToLogistics }) {
   const [showAll, setShowAll] = useState(false);
   const manual = yr.method === 'manual';
   const split = psnSplit(data, yr.year);
@@ -61,9 +53,6 @@ function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty
   const r = role(yr.balance);
   const hidden = manual ? [] : yr.lines.filter((l) => !l.isMilda && l.qty === 0 && !(l.need > 0));
   const lines = showAll ? yr.lines : yr.lines.filter((l) => !hidden.includes(l));
-  const altA = assessDelivery({ year: yr.year, mode: alt.mode, leadTimes: data.leadTimes, needMonth: data.needDates[yr.year], today });
-  const metric = manual ? 'total' : 'totalExw';
-  const diff = alt.yr[metric] - yr[metric];
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const chip = 'flex items-center gap-1 text-[10px] font-semibold text-chem-darkblue bg-white border border-chem-blue-20 rounded-full px-2 py-0.5 hover:bg-chem-blue-10 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
 
@@ -77,12 +66,6 @@ function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty
             options={[{ value: 'quantif', label: 'Automatique (split PSN)' }, { value: 'manual', label: 'Ajusté manuellement' }]} />
           <Segmented label={`Transport FY${yr.year}`} value={yr.mode} onChange={onMode}
             options={[{ value: 'air', label: MODE_PLAIN.air, icon: <Plane w={11} /> }, { value: 'sea', label: MODE_PLAIN.sea, icon: <Truck w={11} /> }]} />
-          <label className="flex items-center gap-1.5 text-[10px] text-chem-gray2">
-            Attendu au Niger en
-            <input type="month" value={data.needDates[yr.year]} onChange={(e) => e.target.value && onNeed(e.target.value)} aria-label={`Date de besoin FY${yr.year}`}
-              className="bg-white border border-chem-gray1-20 rounded-md px-1.5 py-0.5 text-[11px] text-chem-gray1 focus:outline-none focus:border-chem-darkblue" />
-          </label>
-          <StatusBadge status={a.status} />
           <span className="ml-auto text-right text-[11px] tabular-nums">
             <span className="block text-[9px] font-semibold uppercase text-chem-gray2">{yr.balance >= 0 ? 'Reste non utilisé' : 'Dépassement du budget'}</span>
             <span className={`text-[15px] ${r.text}`}>{fmtUsd(Math.abs(yr.balance), 0)}</span>
@@ -96,14 +79,11 @@ function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty
           Budget pour les produits : <strong>{fmtUsd(yr.available, 0)}</strong>{yr.bonus ? <span className="text-chem-gray2"> (dont report reçu {fmtUsd(yr.bonus, 0)})</span> : null} · commandé : <strong>{fmtUsd(yr.total, 0)}</strong> (livré au Niger, transport compris)
           {manual ? ' · quantités ajustées à la main' : ' · tout le budget est réparti selon le split PSN'}.
         </p>
-        <p className="text-[10px] text-chem-gray2 flex items-start gap-1.5"><Calendar w={11} className="mt-0.5 text-chem-darkblue" /> {deliverySentence(a, yr.mode)}</p>
-        <p className="text-[10px] text-chem-gray2 flex items-start gap-1.5">
-          <ModeIcon mode={alt.mode} />
-          {MODE_PLAIN[alt.mode]} plutôt : arrivée {fmtMonth(altA.arrivalMin)} – {fmtMonth(altA.arrivalMax)} pour une commande aujourd’hui
-          {Math.abs(diff) >= 1 && (manual
-            ? `, coût ${diff > 0 ? 'supérieur' : 'inférieur'} de ${fmtUsd(Math.abs(diff), 0)} pour les mêmes quantités.`
-            : `, ${diff > 0 ? 'davantage' : 'moins'} de produits achetés (${diff > 0 ? '+' : '−'} ${fmtUsd(Math.abs(diff), 0)} de valeur EXW).`)}
-        </p>
+        {upcoming && (
+          <p className={`text-[10px] flex items-start gap-1.5 ${yr.mode === 'air' ? 'text-chem-gray2' : NEG.text}`}>
+            <Info w={11} className="mt-0.5" /> Année à venir : transport par avion recommandé pour respecter le plan d’approvisionnement.
+          </p>
+        )}
       </div>
 
       {!hasPsn && (
@@ -138,7 +118,7 @@ function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty
               <tr key={l.id} className={`border-b border-chem-gray1-10 ${l.qty > 0 || manual || l.isMilda ? '' : 'text-chem-gray2'}`}>
                 <td className="px-2 py-1">
                   <span className="font-semibold">{l.plain}</span>
-                  <span className="block text-[9px] text-chem-gray2">{cap(l.use)} · réf. {l.name}</span>
+                  <span className="block text-[9px] text-chem-gray2">{cap(l.use)} · réf. {l.name} · unité : {l.unit}</span>
                 </td>
                 <td className="px-2 py-1 text-right text-chem-gray2">{l.isMilda ? '—' : `${fmtNum((split[l.id] || 0) * 100, 1)} %`}</td>
                 <td className="px-2 py-1 text-right">
@@ -193,7 +173,7 @@ function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty
 }
 
 // ─── Synthèse FY2027-FY2030 ──────────────────────────────────────────────────
-function Summary({ sim, deliveries, busy, onExport }) {
+function Summary({ sim, busy, onExport }) {
   const rows = FUTURE_YEARS.map((y) => sim.years[y]);
   const tot = rows.reduce((t, r) => ({ available: t.available + r.available, total: t.total + r.total, balance: t.balance + r.balance }), { available: 0, total: 0, balance: 0 });
   return (
@@ -213,7 +193,6 @@ function Summary({ sim, deliveries, busy, onExport }) {
               <th className="px-2 py-1.5 text-right">Budget produits</th>
               <th className="px-2 py-1.5 text-right">Commandé</th>
               <th className="px-2 py-1.5 text-right">Reste</th>
-              <th className="px-2 py-1.5 text-right">Livraison</th>
             </tr>
           </thead>
           <tbody>
@@ -224,7 +203,6 @@ function Summary({ sim, deliveries, busy, onExport }) {
                 <td className="px-2 py-1.5 text-right">{fmtUsd(r.available, 0)}</td>
                 <td className="px-2 py-1.5 text-right">{fmtUsd(r.total, 0)}</td>
                 <td className={`px-2 py-1.5 text-right ${role(r.balance).text}`}>{fmtUsd(r.balance, 0)}</td>
-                <td className="px-2 py-1.5 text-right"><StatusBadge status={deliveries[r.year].status} /></td>
               </tr>
             ))}
           </tbody>
@@ -234,7 +212,6 @@ function Summary({ sim, deliveries, busy, onExport }) {
               <td className="px-2 py-1.5 text-right">{fmtUsd(tot.available, 0)}</td>
               <td className="px-2 py-1.5 text-right">{fmtUsd(tot.total, 0)}</td>
               <td className={`px-2 py-1.5 text-right ${role(tot.balance).text}`}>{fmtUsd(tot.balance, 0)}</td>
-              <td />
             </tr>
           </tfoot>
         </table>

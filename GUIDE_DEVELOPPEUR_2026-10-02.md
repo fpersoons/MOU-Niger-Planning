@@ -12,13 +12,13 @@ index.html            page Vite (Montserrat, favicon SVG)
 src/main.jsx          montage React
 src/App.jsx           en-tête, barre des scénarios enregistrés, onglets, import/export
 src/BudgetView.jsx    onglet 1 : budgets du MOU, réserve, clôture FY2026 (accruals, assistance, report)
-src/LogisticsView.jsx onglet 2 : coûts par intrant (EXW, livré bateau, livré avion), PSN 2027-2031, délais
-src/ScenariosView.jsx onglet 3 : scénarios par année (automatique / ajusté), transport, livraison, synthèse
-src/common.jsx        éléments partagés (Section, Segmented, statut, texte e-mail, lexique)
+src/LogisticsView.jsx onglet 2 : coûts par intrant (EXW, livré bateau, livré avion), PSN 2027-2031
+src/ScenariosView.jsx onglet 3 : scénarios par année (automatique / ajusté), transport, synthèse
+src/common.jsx        éléments partagés (Section, Segmented, texte e-mail)
 src/ui.jsx            helpers de format et composants de base (Card, NumInput…)
 src/icons.jsx         icônes SVG maison (DESIGN_SYSTEM §6)
 src/model.js          constantes, valeurs par défaut, parseVal, simulate() — pur
-src/logistics.js      délais d'acheminement, statut de livraison — pur
+src/logistics.js      années fiscales (dates de début et de fin)
 src/excel.js          buildWorkbook / exportScenarioXlsx / importWorkbook
 tests/model.test.js   tests node:test (npm test)
 docs/                 cahier des charges d'origine
@@ -38,8 +38,6 @@ docs/                 cahier des charges d'origine
       "fy26Spending": "unspent" | "planned",                  // FY26 clos : accruals seules / + quantités FY26
       "yearAccruals": { "2026": 1106690, "2027": 0, … },       // accruals par année
       "carryRules":  { "2026": "next" | "smooth" | "none", …, "2029": … },  // report du solde
-      "leadTimes":   { "air": { "min": 4, "max": 7 }, "sea": { "min": 6, "max": 13 } },  // mois
-      "needDates":   { "2027": "2027-01", … },                // produits attendus au Niger
       "commodities": { "1": { "price": 13.79, "landedSea": 20.685, "landedAir": 22.2584, "qty26": 15000 }, … },  // coûts unitaires $
       // ancien format { price, air (%), sea (%) } converti automatiquement en coûts livrés
       "logistics":   { "2026": "air", …, "2030": "sea" },
@@ -70,18 +68,17 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
   Si le résiduel est négatif ou nul, les méthodes calculées donnent des quantités nulles.
 - Le pré-remplissage des quantités manuelles réutilise `quantitiesFor` sur le résiduel courant.
 
-## Délais (`logistics.js`)
+## Coûts de référence
 
-`assessDelivery({ year, mode, leadTimes, needMonth, today })` : `orderBy = besoin − max`,
-`orderByRisky = besoin − min`, fenêtre d'arrivée d'une commande du jour
-`[today + min, today + max]` ; statut `closed` (exercice terminé), `ok`
-(aujourd'hui ≤ orderBy), `risk` (≤ orderByRisky), `late`. Les délais par défaut sont
-des hypothèses (corridor Lomé – Burkina Faso – Niger, frontière Bénin fermée).
+`MOU27_COSTS` (model.js) : prix EXW et coût livré maritime (TLC) du fichier
+« Malaria_MOU_27-Niger.xlsx » (Costing reference sheet), pour les références du
+Commodity calculator ; coût avion = EXW × (1 + taux aérien de référence).
+`referenceCosts()` alimente le bouton « Coûts de référence MOU 27 ».
 
 ## Excel
 
-- Export : feuille *Quantités à commander* (langage courant, délais et statut par
-  exercice, à transmettre), feuille *Simulation* (Arial 11, en-têtes `#000066` blanc gras centré,
+- Export : feuille *Quantités à commander* (langage courant, unités d'achat, à
+  transmettre), feuille *Simulation* (Arial 11, en-têtes `#000066` blanc gras centré,
   catégories `#F1F5F9` gras italique fusionnées A-E, `"$"#,##0.00`, `#,##0`,
   solde vert/rouge) et feuille *Paramètres* (pourcentages écrits en fractions Excel).
 - Import : feuille *Paramètres* si elle existe, sinon toutes les feuilles. Repère le

@@ -7,7 +7,7 @@ import {
   normalizeScenarioData, quantitiesFor,
 } from '../src/model.js';
 import { buildWorkbook, parseWorkbookRows, exportFileName } from '../src/excel.js';
-import { assessDelivery, fiscalYear } from '../src/logistics.js';
+import { fiscalYear } from '../src/logistics.js';
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≠ ${b}`);
 // Pas de report après FY2026 : isole l'effet du solde FY2026.
@@ -92,7 +92,7 @@ test('FY27-30 : split PSN — budget saturé sans dépassement, split sur base E
     const tot = REGULAR.reduce((s, c) => s + 1000 * c.id * d.commodities[c.id].price, 0);
     close(yr.lines.find((l) => l.id === 3).exw / exw, (3000 * d.commodities[3].price) / tot, 1e-4);
   }
-  close(sim.years['2028'].mildaCost, 100000 * 3);
+  close(sim.years['2028'].mildaCost, 100000 * d.commodities[11].landedSea);
   assert.equal(sim.years['2027'].lines.filter((l) => l.isMilda).length, 0);
   assert.equal(sim.years['2028'].lines.filter((l) => l.isMilda).length, MILDA.length);
 });
@@ -162,8 +162,6 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.quantification['2028'][3] = 150000;
   d.quantification['2031'][4] = 777;
   d.regularQtys['2030'][9] = 777;
-  d.leadTimes.sea.max = 15;
-  d.needDates['2029'] = '2029-03';
   const wb = await buildWorkbook({ name: 'Test', data: d });
   const buf = await wb.xlsx.writeBuffer();
   const x = XLSX.read(buf, { type: 'buffer' });
@@ -185,8 +183,6 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.equal(data.quantification['2028'][3], 150000);
   assert.equal(data.quantification['2031'][4], 777);
   assert.equal(data.regularQtys['2030'][9], 777);
-  assert.equal(data.leadTimes.sea.max, 15);
-  assert.equal(data.needDates['2029'], '2029-03');
 });
 
 test('anciens scénarios : méthodes, coûts en %, accruals et report repris sans changer le résultat', () => {
@@ -206,24 +202,17 @@ test('anciens scénarios : méthodes, coûts en %, accruals et report repris san
   close(normalizeScenarioData({ budgets: {}, reserves: { 2026: 500000 }, accruals: { amount: 1000, desc: 'x' } }).yearAccruals['2026'], 501000);
 });
 
-test('délais : exercice clos, à temps, risque, en retard', () => {
-  const lt = { air: { min: 4, max: 7 }, sea: { min: 6, max: 13 } };
-  const today = new Date(2026, 9, 2);
-  assert.equal(assessDelivery({ year: '2026', mode: 'air', leadTimes: lt, needMonth: '2026-01', today }).status, 'closed');
-  const a27 = assessDelivery({ year: '2027', mode: 'air', leadTimes: lt, needMonth: '2027-01', today });
-  assert.equal(a27.status, 'late');
-  assert.equal(a27.arrivalMin.getMonth(), 1); // février 2027
-  assert.equal(assessDelivery({ year: '2027', mode: 'air', leadTimes: lt, needMonth: '2027-04', today }).status, 'risk');
-  const s29 = assessDelivery({ year: '2029', mode: 'sea', leadTimes: lt, needMonth: '2029-01', today });
-  assert.equal(s29.status, 'ok');
-  assert.equal(s29.orderBy.getFullYear(), 2027);
-  assert.equal(s29.orderBy.getMonth(), 11);
+test('années fiscales : FY2027 = 1er octobre 2026 – 30 septembre 2027', () => {
   assert.deepEqual(fiscalYear('2027').start, new Date(2026, 9, 1));
+  assert.deepEqual(fiscalYear('2027').end, new Date(2027, 8, 30));
 });
 
 test('coûts livrés : taux implicite et split PSN', () => {
   const d = defaultScenarioData();
   close(freightRate(d.commodities[10], 'air'), 174, 1e-3);
   d.quantification['2027'][1] = 100; d.quantification['2027'][4] = 300;
-  close(psnSplit(d, '2027')[1], 1379 / (1379 + 1500));
+  close(psnSplit(d, '2027')[1], 1314 / (1314 + 2400));
+  // coûts de référence MOU 27 (fichier Niger) : EXW et coût livré maritime
+  close(d.commodities[4].price, 8); close(d.commodities[4].landedSea, 10.747648);
+  close(d.commodities[9].landedSea, 1.622334);
 });

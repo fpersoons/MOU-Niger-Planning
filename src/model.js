@@ -17,19 +17,19 @@ export const CATEGORIES = [
 // Catalogue des 13 références (propriétés fixes : nom, catégorie, type).
 // `plain` : nom en langage courant ; `use` : à quoi sert le produit (pour les non-spécialistes).
 export const COMMODITIES = [
-  { id: 1, name: 'SP 500/25mg', category: CATEGORIES[0], plain: 'Sulfadoxine-pyriméthamine (SP)', use: 'Prévention chez la femme enceinte (TPIg)' },
-  { id: 2, name: 'AQ-SP 76.5/262.5mg (3-11m)', category: CATEGORIES[0], plain: 'AQ + SP, enfants de 3 à 11 mois', use: 'Chimioprévention du paludisme saisonnier (CPS)' },
-  { id: 3, name: 'AQ-SP 153/525MG (12-59M)', category: CATEGORIES[0], plain: 'AQ + SP, enfants de 12 à 59 mois', use: 'Chimioprévention du paludisme saisonnier (CPS)' },
-  { id: 4, name: 'RDT', category: CATEGORIES[1], plain: 'Test de diagnostic rapide (TDR)', use: 'Dépistage du paludisme' },
-  { id: 5, name: 'AL6', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 6 comprimés (5-14 kg)', use: 'Traitement du paludisme simple' },
-  { id: 6, name: 'AL12', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 12 comprimés (15-24 kg)', use: 'Traitement du paludisme simple' },
-  { id: 7, name: 'AL18', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 18 comprimés (25-34 kg)', use: 'Traitement du paludisme simple' },
-  { id: 8, name: 'AL24', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 24 comprimés (35 kg et plus)', use: 'Traitement du paludisme simple' },
-  { id: 9, name: 'Inj 60 mg', category: CATEGORIES[2], plain: 'Artésunate injectable 60 mg', use: 'Traitement du paludisme grave' },
-  { id: 10, name: 'AS 100mg SUPPO', category: CATEGORIES[2], plain: 'Artésunate rectal 100 mg (suppositoire)', use: 'Traitement pré-transfert du paludisme grave (enfants)' },
-  { id: 11, name: 'MILDA Régulière', category: CATEGORIES[0], isMilda: true, plain: 'Moustiquaire imprégnée standard', use: 'Protection contre les piqûres de moustiques' },
-  { id: 12, name: 'MILDA PBO', category: CATEGORIES[0], isMilda: true, plain: 'Moustiquaire imprégnée PBO', use: 'Protection dans les zones de résistance aux insecticides' },
-  { id: 13, name: 'MILDA IG2', category: CATEGORIES[0], isMilda: true, plain: 'Moustiquaire imprégnée double principe actif (IG2)', use: 'Protection dans les zones de résistance aux insecticides' },
+  { id: 1, name: 'SP 500/25mg', category: CATEGORIES[0], unit: 'boîte de 50 plaquettes de 3 cp', plain: 'Sulfadoxine-pyriméthamine (SP)', use: 'Prévention chez la femme enceinte (TPIg)' },
+  { id: 2, name: 'AQ-SP 76.5/262.5mg (3-11m)', category: CATEGORIES[0], unit: 'boîte de 50 co-blisters', plain: 'AQ + SP, enfants de 3 à 11 mois', use: 'Chimioprévention du paludisme saisonnier (CPS)' },
+  { id: 3, name: 'AQ-SP 153/525MG (12-59M)', category: CATEGORIES[0], unit: 'boîte de 50 co-blisters', plain: 'AQ + SP, enfants de 12 à 59 mois', use: 'Chimioprévention du paludisme saisonnier (CPS)' },
+  { id: 4, name: 'RDT', category: CATEGORIES[1], unit: 'kit de 25 tests', plain: 'Test de diagnostic rapide (TDR)', use: 'Dépistage du paludisme' },
+  { id: 5, name: 'AL6', category: CATEGORIES[2], unit: 'boîte de 30 plaquettes de 6 cp', plain: 'Artéméther-luméfantrine, 6 comprimés (5-14 kg)', use: 'Traitement du paludisme simple' },
+  { id: 6, name: 'AL12', category: CATEGORIES[2], unit: 'boîte de 30 plaquettes de 12 cp', plain: 'Artéméther-luméfantrine, 12 comprimés (15-24 kg)', use: 'Traitement du paludisme simple' },
+  { id: 7, name: 'AL18', category: CATEGORIES[2], unit: 'boîte de 30 plaquettes de 18 cp', plain: 'Artéméther-luméfantrine, 18 comprimés (25-34 kg)', use: 'Traitement du paludisme simple' },
+  { id: 8, name: 'AL24', category: CATEGORIES[2], unit: 'boîte de 30 plaquettes de 24 cp', plain: 'Artéméther-luméfantrine, 24 comprimés (35 kg et plus)', use: 'Traitement du paludisme simple' },
+  { id: 9, name: 'Inj 60 mg', category: CATEGORIES[2], unit: 'flacon', plain: 'Artésunate injectable 60 mg', use: 'Traitement du paludisme grave' },
+  { id: 10, name: 'AS 100mg SUPPO', category: CATEGORIES[2], unit: 'boîte de 2 suppositoires', plain: 'Artésunate rectal 100 mg (suppositoire)', use: 'Traitement pré-transfert du paludisme grave (enfants)' },
+  { id: 11, name: 'MILDA Régulière', category: CATEGORIES[0], isMilda: true, unit: 'moustiquaire 190×180×170 cm', plain: 'Moustiquaire imprégnée standard', use: 'Protection contre les piqûres de moustiques' },
+  { id: 12, name: 'MILDA PBO', category: CATEGORIES[0], isMilda: true, unit: 'moustiquaire 190×180×170 cm', plain: 'Moustiquaire imprégnée PBO', use: 'Protection dans les zones de résistance aux insecticides' },
+  { id: 13, name: 'MILDA IG2', category: CATEGORIES[0], isMilda: true, unit: 'moustiquaire 190×180×170 cm', plain: 'Moustiquaire imprégnée double principe actif (IG2)', use: 'Protection dans les zones de résistance aux insecticides' },
 ];
 export const REGULAR = COMMODITIES.filter((c) => !c.isMilda);
 export const MILDA = COMMODITIES.filter((c) => c.isMilda);
@@ -62,7 +62,33 @@ const toLanded = (p) => ({
 });
 // Paramètres éditables par intrant : prix EXW, coût livré unitaire bateau + route
 // (landedSea) et avion (landedAir), quantité FY26.
-const DEFAULT_PARAMS = Object.fromEntries(Object.entries(REFERENCE_PARAMS).map(([id, p]) => [id, toLanded(p)]));
+// Source des prix EXW et des coûts livrés par voie maritime : « Malaria_MOU_27-Niger.xlsx »
+// (feuille Costing reference sheet : Reference price per pack et TLC Final price/pack,
+// qui inclut fret maritime, assurance, douane, QA et frais), pour les références retenues
+// par le Niger dans le Commodity calculator. Le fichier ne donnant pas de coût aérien,
+// le coût livré avion applique au prix EXW le surcoût aérien de référence (REFERENCE_PARAMS.air).
+const MOU27_COSTS = {
+  1: { price: 13.14, landedSea: 16.028172 },  // SP 25/500mg, plaquette de 3 cp, boîte de 50 plaquettes
+  2: { price: 11.91, landedSea: 14.527818 },  // AQ + SP 76.5mg + 12.5/250mg, boîte de 50 co-blisters
+  3: { price: 14, landedSea: 17.0772 },       // AQ + SP 153mg + 25/500mg, boîte de 50 co-blisters
+  4: { price: 8, landedSea: 10.747648 },      // TDR Pf/Pv, kit de 25 tests
+  5: { price: 6, landedSea: 7.3188 },         // AL 20/120mg dispersible, 6 cp × 30 plaquettes
+  6: { price: 10.3, landedSea: 12.56394 },    // AL 20/120mg dispersible, 12 cp × 30 plaquettes
+  7: { price: 14, landedSea: 17.0772 },       // AL 20/120mg, 18 cp × 30 plaquettes
+  8: { price: 15.72, landedSea: 19.175256 },  // AL 20/120mg, 24 cp × 30 plaquettes
+  9: { price: 1.33, landedSea: 1.622334 },    // Artésunate 60mg injectable, flacon
+  10: { price: 0.7, landedSea: 0.85386 },     // Artésunate 100mg suppositoire, boîte de 2
+  11: { price: 1.81, landedSea: 2.28763366 }, // MILDA standard 190×180×170 cm
+  12: { price: 2.08, landedSea: 2.62888288 }, // MILDA PBO 190×180×170 cm
+  13: { price: 2.81, landedSea: 3.55151966 }, // MILDA double principe actif 190×180×170 cm
+};
+const DEFAULT_PARAMS = Object.fromEntries(Object.entries(REFERENCE_PARAMS).map(([id, p]) => {
+  const c = MOU27_COSTS[id];
+  return [id, { price: c.price, landedSea: c.landedSea, landedAir: round4(c.price * (1 + n0(p.air) / 100)), qty26: n0(p.qty26) }];
+}));
+/** Coûts de référence (MOU 27) : prix EXW et coûts livrés, sans les quantités. */
+export const referenceCosts = () => Object.fromEntries(Object.entries(DEFAULT_PARAMS).map(([id, p]) =>
+  [id, { price: p.price, landedSea: p.landedSea, landedAir: p.landedAir }]));
 
 /** Taux de fret implicite (%) d'un intrant pour un mode : landed / EXW − 1. */
 export const freightRate = (p, mode) => {
@@ -79,6 +105,7 @@ export const DEFAULT_BUDGETS = {
   2030: 7400000,
 };
 
+// FY2027 (année à venir) par avion par défaut, pour respecter le plan d'approvisionnement.
 export const DEFAULT_LOGISTICS = { 2026: 'air', 2027: 'air', 2028: 'sea', 2029: 'sea', 2030: 'sea' };
 
 // Accruals (engagements) au 30 septembre 2026 : une ou plusieurs lignes, chacune
@@ -116,12 +143,6 @@ export const DEFAULT_CARRY_RULES = { 2026: 'next', 2027: 'next', 2028: 'next', 2
 // Accruals (montants engagés) par année ; FY2026 : engagements au 30/09/2026.
 export const DEFAULT_YEAR_ACCRUALS = { 2026: 1106690, 2027: 0, 2028: 0, 2029: 0, 2030: 0 };
 
-// Délais d'acheminement (mois, de la commande à l'arrivée au Niger) — hypothèses
-// par défaut à valider avec GHSC-PSM. Bateau = mer jusqu'à Lomé puis route
-// Togo - Burkina Faso - Niger (frontière Bénin-Niger fermée).
-export const DEFAULT_LEAD_TIMES = { air: { min: 4, max: 7 }, sea: { min: 6, max: 13 } };
-// Date à laquelle les produits doivent être au Niger (AAAA-MM), par exercice.
-export const DEFAULT_NEED_DATES = { 2027: '2027-01', 2028: '2028-01', 2029: '2029-01', 2030: '2030-01' };
 
 const emptyManual = () =>
   Object.fromEntries(YEARS.map((y) => [y, Object.fromEntries(MILDA.map((m) => [m.id, 0]))]));
@@ -138,8 +159,6 @@ export const defaultScenarioData = () => ({
   fy26Spending: 'unspent',
   yearAccruals: { ...DEFAULT_YEAR_ACCRUALS },
   carryRules: { ...DEFAULT_CARRY_RULES },
-  leadTimes: JSON.parse(JSON.stringify(DEFAULT_LEAD_TIMES)),
-  needDates: { ...DEFAULT_NEED_DATES },
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
   quantification: emptyRegular(PSN_YEARS),  // quantités financées par l'USG dans le PSN 2027-2031
   regularQtys: emptyRegular(),     // quantités saisies (méthode « manual »), FY27-FY30
@@ -215,11 +234,6 @@ export const normalizeScenarioData = (d = {}) => {
     // (quantités FY26 dépensées, report lissé ÷ 4) pour ne pas changer leurs résultats.
     fy26Spending: FY26_SPENDING.includes(d.fy26Spending) ? d.fy26Spending : 'planned',
     ...normalizeCarry(d, def),
-    leadTimes: {
-      air: { ...def.leadTimes.air, ...(d.leadTimes?.air || {}) },
-      sea: { ...def.leadTimes.sea, ...(d.leadTimes?.sea || {}) },
-    },
-    needDates: { ...def.needDates, ...(d.needDates || {}) },
     manualQtys: nested('manualQtys', YEARS),
     quantification: nested('quantification', PSN_YEARS),
     regularQtys: nested('regularQtys', FUTURE_YEARS),
@@ -252,7 +266,7 @@ export const num = (v) => {
 const line = (c, qty, price, ratePct) => {
   const exw = qty * price;
   const freight = exw * (ratePct / 100);
-  return { id: c.id, name: c.name, plain: c.plain || c.name, use: c.use || '', category: c.category, isMilda: !!c.isMilda, qty, price, rate: ratePct, exw, freight, landed: exw + freight };
+  return { id: c.id, name: c.name, plain: c.plain || c.name, use: c.use || '', unit: c.unit || '', category: c.category, isMilda: !!c.isMilda, qty, price, rate: ratePct, exw, freight, landed: exw + freight };
 };
 
 const sum = (arr, k) => arr.reduce((s, x) => s + x[k], 0);

@@ -11,7 +11,6 @@ import {
 } from './model.js';
 import { exportScenarioXlsx, importWorkbook } from './excel.js';
 import { NEG, POS, fmtDate, fmtUsd } from './ui.jsx';
-import { Glossary } from './common.jsx';
 import BudgetView from './BudgetView.jsx';
 import LogisticsView from './LogisticsView.jsx';
 import ScenariosView from './ScenariosView.jsx';
@@ -311,12 +310,12 @@ export default function App() {
               setBudget={setBudget} setReserve={setReserve} />
           )}
           {tab === 'logistics' && (
-            <LogisticsView data={data} today={today} updateField={updateField} updateData={updateData}
+            <LogisticsView data={data} updateField={updateField} updateData={updateData}
               setPsnQty={(y, id, v) => setYearQty('quantification', y, id, v)} />
           )}
           {tab === 'scenarios' && (
             <ScenariosView scenario={scenario} data={data} sim={sim} today={today} busy={busy} onExport={() => handleExport()}
-              updateData={updateData} setMode={setMode} setMethod={setMethod} setYearQty={setYearQty}
+              setMode={setMode} setMethod={setMethod} setYearQty={setYearQty}
               fillRegularQtys={fillRegularQtys} goToLogistics={() => setTab('logistics')} />
           )}
         </main>
@@ -330,8 +329,6 @@ export default function App() {
             <button type="button" onClick={() => setTab(TABS[TABS.findIndex((t) => t.id === tab) + 1].id)} className={`${navBtn} !bg-chem-darkblue !text-white !border-chem-darkblue`}>{TABS[TABS.findIndex((t) => t.id === tab) + 1].label} →</button>
           )}
         </div>
-
-        <Glossary />
 
         <footer className="text-center text-[9px] text-chem-gray2 py-2">
           GHSC-PSM — MOU Niger · Données enregistrées localement dans ce navigateur

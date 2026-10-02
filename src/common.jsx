@@ -1,15 +1,7 @@
 // ─── Éléments partagés par les trois vues (budget, logistique, scénarios) ────
-import { useState } from 'react';
-import { STATUS_LABEL, fiscalYear, fmtDay, fmtMonth } from './logistics.js';
-import { AlertTriangle, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronRight, Plane, Truck } from './icons.jsx';
-import { Card, MODE_PLAIN, NEG, POS, fmtNum, fmtUsd } from './ui.jsx';
-
-export const STATUS_STYLE = {
-  ok: `${POS.bg} ${POS.border} ${POS.text}`,
-  risk: 'bg-chem-yellow/15 border-chem-yellow text-chem-gray1',
-  late: `${NEG.bg} ${NEG.border} ${NEG.text}`,
-  closed: 'bg-chem-gray1-10 border-chem-gray1-20 text-chem-gray2',
-};
+import { fiscalYear } from './logistics.js';
+import { CheckCircle2, Plane, Truck } from './icons.jsx';
+import { Card, MODE_PLAIN, fmtNum, fmtUsd } from './ui.jsx';
 
 export const fyPeriod = (y) => {
   const { start, end } = fiscalYear(y);
@@ -44,24 +36,10 @@ export const Segmented = ({ options, value, onChange, label }) => (
   </div>
 );
 
-export const StatusBadge = ({ status }) => (
-  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-semibold uppercase ${STATUS_STYLE[status]}`}>
-    {status === 'ok' ? <CheckCircle2 w={10} /> : status === 'closed' ? <Calendar w={10} /> : <AlertTriangle w={10} />}
-    {STATUS_LABEL[status]}
-  </span>
-);
-
 export const ModeIcon = ({ mode, w = 11 }) => (mode === 'air' ? <Plane w={w} /> : <Truck w={w} />);
 
-export const deliverySentence = (a, mode) => {
-  const how = mode === 'air' ? 'par avion' : 'par bateau puis par la route';
-  if (a.status === 'ok') return `Pour une arrivée au Niger en ${fmtMonth(a.need)}, commander ${how} au plus tard le ${fmtDay(a.orderBy)} (délai prudent de ${a.max} mois).`;
-  if (a.status === 'risk') return `Une commande passée aujourd'hui ${how} arriverait entre ${fmtMonth(a.arrivalMin)} et ${fmtMonth(a.arrivalMax)} : à temps pour ${fmtMonth(a.need)} seulement si tout se passe bien. Commander sans attendre.`;
-  return `Une commande passée aujourd'hui ${how} arriverait entre ${fmtMonth(a.arrivalMin)} et ${fmtMonth(a.arrivalMax)}, après la date souhaitée (${fmtMonth(a.need)}). Prévoir un retard de couverture ou ajuster le plan d'approvisionnement.`;
-};
-
 /** Texte prêt à coller dans un e-mail pour un exercice. */
-export const emailText = (scenarioName, yr, a, data) => {
+export const emailText = (scenarioName, yr) => {
   const lines = [];
   lines.push(`MOU Niger — Quantités proposées FY${yr.year} (scénario « ${scenarioName} »)`);
   const parts = [`budget ${fmtUsd(yr.base, 0)}`];
@@ -70,16 +48,14 @@ export const emailText = (scenarioName, yr, a, data) => {
   if (yr.accruals) parts.push(`− accruals ${fmtUsd(yr.accruals, 0)}`);
   lines.push(`Budget disponible pour les produits : ${fmtUsd(yr.available, 0)} (${parts.join(' ')})`);
   if (yr.assistance) lines.push(`Assistance disponible (assistance technique, entreposage, distribution) : ${fmtUsd(yr.assistance, 0)}`);
-  lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()} — ${deliverySentence(a, yr.mode)}`);
+  lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()}`);
   lines.push('');
   for (const l of yr.lines.filter((x) => x.qty > 0)) {
-    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} unités — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (PSN ${fmtNum(l.need)}, couverture ${fmtNum(l.coverage * 100, 0)} %)` : ''}`);
+    lines.push(`- ${l.plain} [${l.name}] : ${fmtNum(l.qty)} × ${l.unit} — ${fmtUsd(l.landed, 0)}${l.need > 0 ? ` (PSN ${fmtNum(l.need)}, couverture ${fmtNum(l.coverage * 100, 0)} %)` : ''}`);
   }
   lines.push('');
   lines.push(`Total estimé (produits + transport) : ${fmtUsd(yr.total, 0)}`);
   lines.push(`${yr.balance >= 0 ? 'Reste non utilisé' : 'Dépassement du budget'} : ${fmtUsd(Math.abs(yr.balance), 0)}`);
-  lines.push('');
-  lines.push(`Délais estimés : avion ${data.leadTimes.air.min}-${data.leadTimes.air.max} mois, bateau + route via Lomé ${data.leadTimes.sea.min}-${data.leadTimes.sea.max} mois (hypothèses à confirmer avec GHSC-PSM).`);
   return lines.join('\n');
 };
 
@@ -91,45 +67,3 @@ export const copyText = async (text) => {
     ta.remove(); return ok;
   }
 };
-
-// ─── Lexique ─────────────────────────────────────────────────────────────────
-const TERMS = [
-  ['Année fiscale (FY)', 'Année budgétaire américaine, du 1er octobre au 30 septembre. FY2027 = 1er octobre 2026 – 30 septembre 2027.'],
-  ['Réserve d’assistance', 'Partie du budget réservée à l’assistance technique, à l’entreposage et à la distribution ; elle ne sert pas à acheter des produits.'],
-  ['Accruals', 'Montants engagés sur le budget d’une année (pour FY2026 : au 30 septembre 2026) ; ils sont déduits du budget.'],
-  ['Solde et report', 'Budget d’une année non utilisé : pour FY2026, budget − accruals ; ensuite, la part du budget produits non commandée. Il est reporté sur l’année suivante, lissé sur les années suivantes, ou non reporté.'],
-  ['Prix EXW', 'Prix « départ usine » : prix du produit seul, avant transport.'],
-  ['Coût livré (landed)', 'Prix du produit + transport jusqu’au Niger, par unité, selon le mode : bateau + route via Lomé, ou avion.'],
-  ['PSN', 'Quantités de produits financées par l’USG dans le PSN 2027-2031, par année.'],
-  ['Split', 'Part de chaque produit dans la valeur (prix EXW × quantité) des quantités PSN de l’année ; il sert à répartir le budget.'],
-  ['Couverture', 'Quantité commandée ÷ quantité PSN de l’année. 100 % = quantité PSN entièrement couverte.'],
-  ['CPS', 'Chimioprévention du paludisme saisonnier : AQ + SP pour les jeunes enfants, en général de juillet à octobre.'],
-  ['TPIg', 'Traitement préventif intermittent du paludisme chez la femme enceinte (SP).'],
-  ['CTA / AL', 'Combinaison thérapeutique à base d’artémisinine ; AL = artéméther-luméfantrine, traitement du paludisme simple, par tranche de poids.'],
-  ['TDR (RDT)', 'Test de diagnostic rapide du paludisme.'],
-  ['MILDA', 'Moustiquaire imprégnée d’insecticide à longue durée d’action (PBO, IG2 : zones de résistance aux insecticides). Transport par bateau uniquement.'],
-];
-
-export function Glossary() {
-  const [open, setOpen] = useState(false);
-  return (
-    <Card>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="w-full flex items-center gap-2 text-left">
-        {open ? <ChevronDown w={14} className="text-chem-darkblue" /> : <ChevronRight w={14} className="text-chem-gray1-40" />}
-        <BookOpen w={14} className="text-chem-darkblue" />
-        <span className="text-[12px] font-bold uppercase tracking-wider text-chem-darkblue">Lexique</span>
-        <span className="text-[10px] text-chem-gray2">les termes techniques expliqués simplement</span>
-      </button>
-      {open && (
-        <dl className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5">
-          {TERMS.map(([t, d]) => (
-            <div key={t} className="text-[11px]">
-              <dt className="font-semibold text-chem-gray1">{t}</dt>
-              <dd className="text-chem-gray2 leading-relaxed">{d}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </Card>
-  );
-}

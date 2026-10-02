@@ -6,7 +6,7 @@ import {
   CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
   CARRY_LABEL, CARRY_RULES, CARRY_YEARS, PSN_YEARS, normalizeScenarioData, parseVal, simulate,
 } from './model.js';
-import { STATUS_LABEL, assessDelivery, fmtDay, fmtMonth } from './logistics.js';
+import { fmtDay } from './logistics.js';
 
 const MODE_PLAIN = { air: 'Avion', sea: 'Bateau + route via Lomé' };
 const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
@@ -98,26 +98,18 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
     `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accruals).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde ${Math.round(sim.surplus).toLocaleString('fr-FR')} $, report : ${lowerFirst(CARRY_LABEL[sim.years['2026'].carryRule])}.`,
-    `Délais estimés de la commande à l'arrivée au Niger : avion ${data.leadTimes.air.min}-${data.leadTimes.air.max} mois ; bateau + route via Lomé (Togo - Burkina Faso - Niger, frontière Bénin fermée) ${data.leadTimes.sea.min}-${data.leadTimes.sea.max} mois. Hypothèses à confirmer avec GHSC-PSM.`,
   ]) { const r = wo.addRow([txt]); r.getCell(1).font = FONT; }
   wo.addRow([]);
   for (const y of FUTURE_YEARS) {
     const yr = sim.years[y];
-    const a = assessDelivery({ year: y, mode: yr.mode, leadTimes: data.leadTimes, needMonth: data.needDates[y], today });
-    const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]} — ${STATUS_LABEL[a.status]}`]);
+    const title = wo.addRow([`FY${y} — ${MODE_PLAIN[yr.mode]} — ${METHOD_PLAIN[yr.method]}`]);
     wo.mergeCells(title.number, 1, title.number, 6);
     title.getCell(1).font = { ...FONT, bold: true };
-    const when = a.status === 'ok'
-      ? `Produits attendus en ${fmtMonth(a.need)} : commander au plus tard le ${fmtDay(a.orderBy)}.`
-      : `Commande passée aujourd'hui : arrivée estimée entre ${fmtMonth(a.arrivalMin)} et ${fmtMonth(a.arrivalMax)} (produits attendus en ${fmtMonth(a.need)}).`;
-    const w = wo.addRow([when]);
-    wo.mergeCells(w.number, 1, w.number, 6);
-    w.getCell(1).font = FONT;
     const hdr = wo.addRow(['Produit', 'Usage', 'Quantité à commander', 'Coût estimé livré ($)', 'Quantification PSN', 'Couverture']);
     hdr.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
     for (const l of yr.lines) {
       const hasNeed = l.need > 0;
-      const r = wo.addRow([`${l.plain} (${l.name})`, l.use, l.qty, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage : null]);
+      const r = wo.addRow([`${l.plain} (${l.name}) — ${l.unit}`, l.use, l.qty, l.landed, hasNeed ? l.need : null, hasNeed ? l.coverage : null]);
       r.eachCell({ includeEmpty: true }, (c) => (c.font = FONT));
       r.getCell(3).numFmt = QTY; r.getCell(4).numFmt = MONEY; r.getCell(5).numFmt = QTY; r.getCell(6).numFmt = '0%';
     }
@@ -208,11 +200,6 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   const acc = [];
   acc.push(
     ['Options — FY2026 dépensé', data.fy26Spending === 'unspent' ? 'Non' : 'Oui'],
-    ['Délais — Avion min (mois)', data.leadTimes.air.min],
-    ['Délais — Avion max (mois)', data.leadTimes.air.max],
-    ['Délais — Bateau min (mois)', data.leadTimes.sea.min],
-    ['Délais — Bateau max (mois)', data.leadTimes.sea.max],
-    ...FUTURE_YEARS.map((y) => [`Délais — Produits attendus FY${y} (AAAA-MM)`, data.needDates[y]]),
   );
   for (const [label, value, fmt] of acc) {
     const row = wp.addRow([label, value]);
@@ -336,13 +323,6 @@ export const parseWorkbookRows = (sheets, base) => {
         if (first.includes('assistance')) legacyAssist = parseVal(header[1]);
         else if (first.includes('report')) data.carryRules['2026'] = v.includes('lisse') || v.endsWith('4') ? 'smooth' : 'next';
         else if (first.includes('depense')) data.fy26Spending = v === 'non' ? 'unspent' : 'planned';
-      }
-      if (first.startsWith('delais')) {
-        const mode = first.includes('avion') ? 'air' : first.includes('bateau') ? 'sea' : null;
-        const y = String(header[0]).match(/FY(20(2[7-9]|30))/)?.[1];
-        if (mode && /min/.test(first)) data.leadTimes[mode].min = parseVal(header[1]);
-        else if (mode && /max/.test(first)) data.leadTimes[mode].max = parseVal(header[1]);
-        else if (y && /^\d{4}-\d{2}/.test(String(header[1] ?? ''))) data.needDates[y] = String(header[1]).slice(0, 7);
       }
       // Anciens fichiers : tableau des accruals au 30/09/2026 ou lignes « Accruals — … »
       if (first === 'accrualsau30092026') {
