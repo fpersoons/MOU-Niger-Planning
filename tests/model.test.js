@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
 import { defaultScenarioData, simulate, parseVal, splitStatus, REGULAR, MILDA, zeroedScenarioData, normalizeScenarioData, quantitiesFor } from '../src/model.js';
 import { buildWorkbook, parseWorkbookRows, exportFileName } from '../src/excel.js';
+import { assessDelivery, fiscalYear } from '../src/logistics.js';
+
+// Règles d'origine du cahier des charges : FY26 dépensé selon les quantités saisies, report ÷ 4.
+const specData = () => ({ ...defaultScenarioData(), fy26Spending: 'planned', carryover: 'smooth' });
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≠ ${b}`);
 
@@ -24,7 +28,7 @@ test('split FY25 par défaut = 100 %', () => {
 });
 
 test('FY26 : dépenses, surplus et report lissé', () => {
-  const d = defaultScenarioData();
+  const d = specData();
   const sim = simulate(d);
   let expected = 0;
   for (const c of REGULAR) {
@@ -39,7 +43,7 @@ test('FY26 : dépenses, surplus et report lissé', () => {
 });
 
 test('FY27-30 : saturation du budget résiduel sans dépassement, split sur base EXW', () => {
-  const d = defaultScenarioData();
+  const d = specData();
   d.manualQtys['2028'][11] = 100000;
   const sim = simulate(d);
   for (const y of ['2027', '2028', '2029', '2030']) {
@@ -83,11 +87,15 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   d.methods['2030'] = 'manual';
   d.quantification['2028'][3] = 150000;
   d.maximize['2028'] = true;
+  d.carryover = 'smooth';
+  d.fy26Spending = 'planned';
+  d.leadTimes.sea.max = 15;
+  d.needDates['2029'] = '2029-03';
   d.regularQtys['2030'][9] = 777;
   const wb = await buildWorkbook({ name: 'Test', data: d });
   const buf = await wb.xlsx.writeBuffer();
   const x = XLSX.read(buf, { type: 'buffer' });
-  assert.deepEqual(x.SheetNames, ['Simulation', 'Paramètres']);
+  assert.deepEqual(x.SheetNames, ['Quantités à commander', 'Simulation', 'Paramètres']);
   const rows = XLSX.utils.sheet_to_json(x.Sheets['Paramètres'], { header: 1, raw: true, defval: null });
   const { data, found } = parseWorkbookRows([rows], zeroedScenarioData(defaultScenarioData()));
   assert.equal(found, 13);
@@ -105,11 +113,15 @@ test('aller-retour Excel : export ExcelJS puis import SheetJS', async () => {
   assert.deepEqual(data.methods, d.methods);
   assert.equal(data.quantification['2028'][3], 150000);
   assert.deepEqual(data.maximize, d.maximize);
+  assert.equal(data.carryover, 'smooth');
+  assert.equal(data.fy26Spending, 'planned');
+  assert.equal(data.leadTimes.sea.max, 15);
+  assert.equal(data.needDates['2029'], '2029-03');
   assert.equal(data.regularQtys['2030'][9], 777);
 });
 
 test('réserve d’assistance déduite du budget intrants', () => {
-  const d = defaultScenarioData();
+  const d = specData();
   const ref = simulate(d);
   d.reserves['2026'] = 100000;
   d.reserves['2027'] = 1600000;
@@ -178,4 +190,44 @@ test('anciens scénarios (sans réserve ni méthode) complétés par défaut', (
   assert.equal(n.reserves['2027'], 0);
   assert.equal(n.methods['2027'], 'split');
   assert.equal(n.quantification['2030'][1], 0);
+});
+
+test('FY26 non dépensé : seules les accruals comptent, surplus reporté en totalité sur FY27', () => {
+  const d = defaultScenarioData();
+  assert.equal(d.fy26Spending, 'unspent');
+  assert.equal(d.carryover, 'fy27');
+  const sim = simulate(d);
+  close(sim.years['2026'].total, 1106690);
+  close(sim.surplus, 13321800 - 1106690);
+  close(sim.years['2027'].available, d.budgets['2027'] + sim.surplus);
+  close(sim.years['2028'].available, d.budgets['2028']);
+  d.carryover = 'smooth';
+  const s2 = simulate(d);
+  close(s2.years['2028'].available, d.budgets['2028'] + s2.surplus / 4);
+});
+
+test('anciens scénarios : FY26 dépensé et report lissé conservés', () => {
+  const old = defaultScenarioData();
+  delete old.fy26Spending; delete old.carryover;
+  const n = normalizeScenarioData(old);
+  assert.equal(n.fy26Spending, 'planned');
+  assert.equal(n.carryover, 'smooth');
+});
+
+test('délais : exercice clos, à temps, risque, en retard', () => {
+  const lt = { air: { min: 4, max: 7 }, sea: { min: 6, max: 13 } };
+  const today = new Date(2026, 9, 2);
+  assert.equal(assessDelivery({ year: '2026', mode: 'air', leadTimes: lt, needMonth: '2026-01', today }).status, 'closed');
+  // FY27, besoin janvier 2027 : même par avion (4 mois min) trop tard
+  const a27 = assessDelivery({ year: '2027', mode: 'air', leadTimes: lt, needMonth: '2027-01', today });
+  assert.equal(a27.status, 'late');
+  assert.equal(a27.arrivalMin.getMonth(), 1); // février 2027
+  // besoin juin 2027 : avion possible si tout va bien (4 mois) mais pas garanti (7)
+  assert.equal(assessDelivery({ year: '2027', mode: 'air', leadTimes: lt, needMonth: '2027-04', today }).status, 'risk');
+  // FY29 par bateau : commande possible jusqu'en décembre 2027
+  const s29 = assessDelivery({ year: '2029', mode: 'sea', leadTimes: lt, needMonth: '2029-01', today });
+  assert.equal(s29.status, 'ok');
+  assert.equal(s29.orderBy.getFullYear(), 2027);
+  assert.equal(s29.orderBy.getMonth(), 11);
+  assert.deepEqual(fiscalYear('2027').start, new Date(2026, 9, 1));
 });

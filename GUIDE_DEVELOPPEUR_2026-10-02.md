@@ -10,7 +10,11 @@ React 18 + Vite 5 + Tailwind CSS 3 (preset CHEMONICS), ExcelJS (export) et Sheet
 ```
 index.html            page Vite (Montserrat, favicon SVG)
 src/main.jsx          montage React
-src/App.jsx           interface : en-tête, volets, tableaux, scénarios, synthèse
+src/App.jsx           en-tête, onglets (assistant / vue détaillée), vue détaillée, scénarios
+src/Assistant.jsx     assistant pas à pas (non-spécialistes) : budget, répartition, quantités
+src/Quantification.jsx tableau « Demande du Niger » (quantification), partagé
+src/ui.jsx            helpers de format et composants de base (Card, NumInput…)
+src/logistics.js      délais d'acheminement, statut de livraison — pur
 src/icons.jsx         icônes SVG maison (DESIGN_SYSTEM §6)
 src/model.js          constantes, valeurs par défaut, parseVal, simulate() — pur
 src/excel.js          buildWorkbook / exportScenarioXlsx / importWorkbook
@@ -33,6 +37,10 @@ docs/                 cahier des charges d'origine
       "reserves":    { "2026": 0, …, "2030": 0 },            // réserve d'assistance
       "methods":     { "2027": "split" | "quantif" | "manual", … },
       "maximize":    { "2027": false, … },                    // quantif sans plafond
+      "fy26Spending": "unspent" | "planned",                  // FY26 clos : rien commandé / quantités FY26
+      "carryover":   "fy27" | "smooth",                       // report du non-dépensé FY26
+      "leadTimes":   { "air": { "min": 4, "max": 7 }, "sea": { "min": 6, "max": 13 } },  // mois
+      "needDates":   { "2027": "2027-01", … },                // produits attendus au Niger
       "commodities": { "1": { "split": 4.41, "price": 13.79, "air": 61.41, "sea": 50, "qty26": 15000 }, … },
       "logistics":   { "2026": "air", …, "2030": "sea" },
       "accruals":    { "amount": 1106690, "desc": "mRDTs (RO Accruals)", "refs": "", "freightPct": 0 },
@@ -49,8 +57,11 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
 
 - FY26 : `Landed = Q × P × (1 + r)` avec r selon le mode FY26 ; MILDA comptées
   uniquement en mode Mer ; accruals `EXW × (1 + taux)`.
-  Surplus = budget − réserve − total ; bonus = surplus / 4.
-- FY27-30 : `dispo = budget − réserve + bonus` ; `résiduel = dispo − coût landed MILDA`.
+  Avec `fy26Spending = "unspent"`, seules les accruals sont comptées.
+  Surplus = budget − réserve − total ; report `carry[y]` = surplus en FY27 (`fy27`)
+  ou surplus / 4 par année (`smooth`). Les scénarios sans ces champs gardent
+  `planned` + `smooth` (comportement d'origine).
+- FY27-30 : `dispo = budget − réserve + carry[y]` ; `résiduel = dispo − coût landed MILDA`.
   Quantités des intrants réguliers (`quantitiesFor`) selon `methods[y]` :
   - `split` : `w_i = split_i / Σsplit` ; `E_tot = résiduel / Σ w_i (1 + r_i)` ;
     `Q_i = ⌊E_tot × w_i / P_i⌋` ;
@@ -62,9 +73,18 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
   Si le résiduel est négatif ou nul, les méthodes calculées donnent des quantités nulles.
 - Le pré-remplissage des quantités manuelles réutilise `quantitiesFor` sur le résiduel courant.
 
+## Délais (`logistics.js`)
+
+`assessDelivery({ year, mode, leadTimes, needMonth, today })` : `orderBy = besoin − max`,
+`orderByRisky = besoin − min`, fenêtre d'arrivée d'une commande du jour
+`[today + min, today + max]` ; statut `closed` (exercice terminé), `ok`
+(aujourd'hui ≤ orderBy), `risk` (≤ orderByRisky), `late`. Les délais par défaut sont
+des hypothèses (corridor Lomé – Burkina Faso – Niger, frontière Bénin fermée).
+
 ## Excel
 
-- Export : feuille *Simulation* (Arial 11, en-têtes `#000066` blanc gras centré,
+- Export : feuille *Quantités à commander* (langage courant, délais et statut par
+  exercice, à transmettre), feuille *Simulation* (Arial 11, en-têtes `#000066` blanc gras centré,
   catégories `#F1F5F9` gras italique fusionnées A-E, `"$"#,##0.00`, `#,##0`,
   solde vert/rouge) et feuille *Paramètres* (pourcentages écrits en fractions Excel).
 - Import : feuille *Paramètres* si elle existe, sinon toutes les feuilles. Repère le

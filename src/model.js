@@ -13,20 +13,21 @@ export const CATEGORIES = [
 ];
 
 // Catalogue des 13 références (propriétés fixes : nom, catégorie, type).
+// `plain` : nom en langage courant ; `use` : à quoi sert le produit (pour les non-spécialistes).
 export const COMMODITIES = [
-  { id: 1, name: 'SP 500/25mg', category: CATEGORIES[0] },
-  { id: 2, name: 'AQ-SP 76.5/262.5mg (3-11m)', category: CATEGORIES[0] },
-  { id: 3, name: 'AQ-SP 153/525MG (12-59M)', category: CATEGORIES[0] },
-  { id: 4, name: 'RDT', category: CATEGORIES[1] },
-  { id: 5, name: 'AL6', category: CATEGORIES[2] },
-  { id: 6, name: 'AL12', category: CATEGORIES[2] },
-  { id: 7, name: 'AL18', category: CATEGORIES[2] },
-  { id: 8, name: 'AL24', category: CATEGORIES[2] },
-  { id: 9, name: 'Inj 60 mg', category: CATEGORIES[2] },
-  { id: 10, name: 'AS 100mg SUPPO', category: CATEGORIES[2] },
-  { id: 11, name: 'MILDA Régulière', category: CATEGORIES[0], isMilda: true },
-  { id: 12, name: 'MILDA PBO', category: CATEGORIES[0], isMilda: true },
-  { id: 13, name: 'MILDA IG2', category: CATEGORIES[0], isMilda: true },
+  { id: 1, name: 'SP 500/25mg', category: CATEGORIES[0], plain: 'Sulfadoxine-pyriméthamine (SP)', use: 'Prévention chez la femme enceinte (TPIg)' },
+  { id: 2, name: 'AQ-SP 76.5/262.5mg (3-11m)', category: CATEGORIES[0], plain: 'AQ + SP, enfants de 3 à 11 mois', use: 'Chimioprévention du paludisme saisonnier (CPS)' },
+  { id: 3, name: 'AQ-SP 153/525MG (12-59M)', category: CATEGORIES[0], plain: 'AQ + SP, enfants de 12 à 59 mois', use: 'Chimioprévention du paludisme saisonnier (CPS)' },
+  { id: 4, name: 'RDT', category: CATEGORIES[1], plain: 'Test de diagnostic rapide (TDR)', use: 'Dépistage du paludisme' },
+  { id: 5, name: 'AL6', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 6 comprimés (5-14 kg)', use: 'Traitement du paludisme simple' },
+  { id: 6, name: 'AL12', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 12 comprimés (15-24 kg)', use: 'Traitement du paludisme simple' },
+  { id: 7, name: 'AL18', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 18 comprimés (25-34 kg)', use: 'Traitement du paludisme simple' },
+  { id: 8, name: 'AL24', category: CATEGORIES[2], plain: 'Artéméther-luméfantrine, 24 comprimés (35 kg et plus)', use: 'Traitement du paludisme simple' },
+  { id: 9, name: 'Inj 60 mg', category: CATEGORIES[2], plain: 'Artésunate injectable 60 mg', use: 'Traitement du paludisme grave' },
+  { id: 10, name: 'AS 100mg SUPPO', category: CATEGORIES[2], plain: 'Artésunate rectal 100 mg (suppositoire)', use: 'Traitement pré-transfert du paludisme grave (enfants)' },
+  { id: 11, name: 'MILDA Régulière', category: CATEGORIES[0], isMilda: true, plain: 'Moustiquaire imprégnée standard', use: 'Protection contre les piqûres de moustiques' },
+  { id: 12, name: 'MILDA PBO', category: CATEGORIES[0], isMilda: true, plain: 'Moustiquaire imprégnée PBO', use: 'Protection dans les zones de résistance aux insecticides' },
+  { id: 13, name: 'MILDA IG2', category: CATEGORIES[0], isMilda: true, plain: 'Moustiquaire imprégnée double principe actif (IG2)', use: 'Protection dans les zones de résistance aux insecticides' },
 ];
 export const REGULAR = COMMODITIES.filter((c) => !c.isMilda);
 export const MILDA = COMMODITIES.filter((c) => c.isMilda);
@@ -76,6 +77,20 @@ export const DEFAULT_METHODS = { 2027: 'split', 2028: 'split', 2029: 'split', 20
 // même au-delà des besoins ; false = plafonné aux besoins (défaut).
 export const DEFAULT_MAXIMIZE = { 2027: false, 2028: false, 2029: false, 2030: false };
 
+// FY2026 (clos le 30/09/2026) : « planned » = les quantités FY26 saisies ont été
+// commandées ; « unspent » = rien n'a été commandé, seules les accruals sont comptées.
+export const FY26_SPENDING = ['planned', 'unspent'];
+// Report du surplus FY26 : « fy27 » = en totalité sur FY2027 ; « smooth » = ÷ 4 sur FY27-FY30.
+export const CARRYOVER = ['fy27', 'smooth'];
+export const CARRYOVER_LABEL = { fy27: 'En totalité sur FY2027', smooth: 'Lissé sur FY2027-FY2030 (÷ 4)' };
+
+// Délais d'acheminement (mois, de la commande à l'arrivée au Niger) — hypothèses
+// par défaut à valider avec GHSC-PSM. Bateau = mer jusqu'à Lomé puis route
+// Togo - Burkina Faso - Niger (frontière Bénin-Niger fermée).
+export const DEFAULT_LEAD_TIMES = { air: { min: 4, max: 7 }, sea: { min: 6, max: 13 } };
+// Date à laquelle les produits doivent être au Niger (AAAA-MM), par exercice.
+export const DEFAULT_NEED_DATES = { 2027: '2027-01', 2028: '2028-01', 2029: '2029-01', 2030: '2030-01' };
+
 const emptyManual = () =>
   Object.fromEntries(YEARS.map((y) => [y, Object.fromEntries(MILDA.map((m) => [m.id, 0]))]));
 const emptyRegular = () =>
@@ -89,6 +104,10 @@ export const defaultScenarioData = () => ({
   logistics: { ...DEFAULT_LOGISTICS },
   methods: { ...DEFAULT_METHODS },
   maximize: { ...DEFAULT_MAXIMIZE },
+  fy26Spending: 'unspent',
+  carryover: 'fy27',
+  leadTimes: JSON.parse(JSON.stringify(DEFAULT_LEAD_TIMES)),
+  needDates: { ...DEFAULT_NEED_DATES },
   accruals: { ...DEFAULT_ACCRUALS },
   manualQtys: emptyManual(),       // MILDA, saisie manuelle (mode Mer)
   quantification: emptyRegular(),  // besoins exprimés par le Niger, FY27-FY30
@@ -122,6 +141,15 @@ export const normalizeScenarioData = (d = {}) => {
     logistics: { ...def.logistics, ...(d.logistics || {}) },
     methods,
     maximize: Object.fromEntries(FUTURE_YEARS.map((y) => [y, !!(d.maximize?.[y] ?? def.maximize[y])])),
+    // Scénarios antérieurs à ces options : on conserve le comportement d'origine
+    // (quantités FY26 dépensées, report lissé ÷ 4) pour ne pas changer leurs résultats.
+    fy26Spending: FY26_SPENDING.includes(d.fy26Spending) ? d.fy26Spending : 'planned',
+    carryover: CARRYOVER.includes(d.carryover) ? d.carryover : 'smooth',
+    leadTimes: {
+      air: { ...def.leadTimes.air, ...(d.leadTimes?.air || {}) },
+      sea: { ...def.leadTimes.sea, ...(d.leadTimes?.sea || {}) },
+    },
+    needDates: { ...def.needDates, ...(d.needDates || {}) },
     accruals: { ...def.accruals, ...(d.accruals || {}) },
     manualQtys: nested('manualQtys', YEARS),
     quantification: nested('quantification', FUTURE_YEARS),
@@ -155,7 +183,7 @@ export const num = (v) => {
 const line = (c, qty, price, ratePct) => {
   const exw = qty * price;
   const freight = exw * (ratePct / 100);
-  return { id: c.id, name: c.name, category: c.category, isMilda: !!c.isMilda, qty, price, rate: ratePct, exw, freight, landed: exw + freight };
+  return { id: c.id, name: c.name, plain: c.plain || c.name, use: c.use || '', category: c.category, isMilda: !!c.isMilda, qty, price, rate: ratePct, exw, freight, landed: exw + freight };
 };
 
 const sum = (arr, k) => arr.reduce((s, x) => s + x[k], 0);
@@ -206,6 +234,7 @@ export const quantitiesFor = (data, year, method, residual) => {
 // ─── Simulation FY26-FY30 (§3) ──────────────────────────────────────────────
 export const simulate = (data) => {
   const { budgets, reserves = {}, commodities, logistics, accruals, manualQtys, methods = {}, quantification = {} } = data;
+  const fy26Unspent = data.fy26Spending === 'unspent';
   const p = (id) => commodities[id] || {};
   const rateFor = (id, mode) => num(mode === 'air' ? p(id).air : p(id).sea);
   const mildaLines = (y) =>
@@ -215,8 +244,8 @@ export const simulate = (data) => {
 
   // FY 2026 : quantités saisies ; la réserve d'assistance est déduite du budget.
   const mode26 = logistics['2026'];
-  const regular26 = REGULAR.map((c) => line(c, Math.max(0, num(p(c.id).qty26)), num(p(c.id).price), rateFor(c.id, mode26)));
-  const milda26 = mildaLines('2026');
+  const regular26 = REGULAR.map((c) => line(c, fy26Unspent ? 0 : Math.max(0, num(p(c.id).qty26)), num(p(c.id).price), rateFor(c.id, mode26)));
+  const milda26 = fy26Unspent ? [] : mildaLines('2026');
   const accExw = num(accruals.amount);
   const accFreight = accExw * (num(accruals.freightPct) / 100);
   const accrual = {
@@ -228,11 +257,13 @@ export const simulate = (data) => {
   const total26 = sum(regular26, 'landed') + sum(milda26, 'landed') + accrual.landed;
   const available26 = base26 - reserve26;
   const surplus = available26 - total26;
-  const bonus = surplus / 4;
+  const carryover = data.carryover === 'fy27' ? 'fy27' : 'smooth';
+  const carry = Object.fromEntries(FUTURE_YEARS.map((y) => [y, carryover === 'fy27' ? (y === '2027' ? surplus : 0) : surplus / 4]));
+  const bonus = surplus / 4; // report annuel lissé (règle d'origine), conservé pour compatibilité
 
   const result = {
     2026: {
-      year: '2026', mode: mode26, method: 'fy26', base: base26, reserve: reserve26, bonus: 0, available: available26,
+      year: '2026', mode: mode26, method: 'fy26', unspent: fy26Unspent, base: base26, reserve: reserve26, bonus: 0, available: available26,
       lines: [...regular26, ...milda26, accrual], mildaCost: sum(milda26, 'landed'),
       totalExw: sum(regular26, 'exw') + sum(milda26, 'exw') + accExw,
       totalFreight: sum(regular26, 'freight') + sum(milda26, 'freight') + accFreight,
@@ -247,7 +278,7 @@ export const simulate = (data) => {
     const method = METHODS.includes(methods[y]) ? methods[y] : 'split';
     const base = num(budgets[y]);
     const reserve = num(reserves[y]);
-    const available = base - reserve + bonus;
+    const available = base - reserve + carry[y];
     const milda = mildaLines(y);
     const mildaCost = sum(milda, 'landed');
     const residual = available - mildaCost;
@@ -260,14 +291,14 @@ export const simulate = (data) => {
     const needLanded = REGULAR.reduce((s, c) => s + floorQty(num(quantification?.[y]?.[c.id])) * num(p(c.id).price) * (1 + rateFor(c.id, mode) / 100), 0);
     const total = sum(regular, 'landed') + mildaCost;
     result[y] = {
-      year: y, mode, method, maximize: method === 'quantif' && !!data.maximize?.[y], base, reserve, bonus, available, residual, eTot, lines: [...regular, ...milda], mildaCost,
+      year: y, mode, method, maximize: method === 'quantif' && !!data.maximize?.[y], base, reserve, bonus: carry[y], available, residual, eTot, lines: [...regular, ...milda], mildaCost,
       needLanded,
       totalExw: sum(regular, 'exw') + sum(milda, 'exw'),
       totalFreight: sum(regular, 'freight') + sum(milda, 'freight'),
       total, balance: available - total,
     };
   }
-  return { years: result, surplus, bonus, splitTotal: sTot };
+  return { years: result, surplus, bonus, carry, carryover, splitTotal: sTot };
 };
 
 /** Somme des splits FY25 des intrants réguliers, et validité (|Σ-100| < 0,1). */

@@ -6,21 +6,25 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, defaultScenarioData,
+  CARRYOVER_LABEL, CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, defaultScenarioData,
   normalizeScenarioData, num, quantitiesFor, simulate, splitStatus, zeroedScenarioData,
 } from './model.js';
 import { exportScenarioXlsx, importWorkbook } from './excel.js';
+import QuantificationCard from './Quantification.jsx';
+import Assistant from './Assistant.jsx';
+import { STATUS_LABEL, assessDelivery, fmtMonth } from './logistics.js';
+import { Card, MODE_LABEL, ModeBadge, NEG, NumInput, POS, SectionHeader, fmtDate, fmtNum, fmtSigned, fmtUsd, role } from './ui.jsx';
 import {
   AlertTriangle, BookOpen, Calculator, CheckCircle2, ChevronDown, ChevronRight, Circle, Cloud, CloudCheck,
   Copy, Database, Download, FileSpreadsheet, Info, Landmark, Layers, Package, Plane, Plus,
-  Repeat, RotateCcw, ShieldCheck, Trash2, TrendingUp, Upload, Waves,
+  Repeat, RotateCcw, ShieldCheck, Trash2, TrendingUp, Upload, Waves, Compass, Sliders,
 } from './icons.jsx';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'ghsc-psm-planificateur-paludisme-v1';
+const VIEW_KEY = 'ghsc-psm-planificateur-paludisme-vue'; // préférence d'affichage, propre au navigateur
 const DRIVE_FILE_ID = '1e2J9WXyNFNI4DYm1JX4V5H1jVxMLoFnQ';
 const DRIVE_URL = `https://drive.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
-const MODE_LABEL = { air: 'Air', sea: 'Mer' };
 const CAT_LABEL = {
   'Prevention Commodity Procurement': 'Prevention Commodity Procurement',
   'Diagnostic Commodity Procurement': 'Diagnostic Commodity Procurement',
@@ -29,10 +33,6 @@ const CAT_LABEL = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const fmtNum = (n, d = 0) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
-const fmtUsd = (n, d = 2) => `${fmtNum(n, d)} $`;
-const fmtSigned = (n, d = 2) => `${n > 0 ? '+' : n < 0 ? '-' : ''}${fmtNum(Math.abs(n), d)} $`;
-const fmtDate = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '');
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 const newScenario = (name, data = defaultScenarioData()) => ({ id: uid(), name, updatedAt: new Date().toISOString(), data });
@@ -60,73 +60,6 @@ const downloadBlob = (blob, name) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-// Rôles de couleur (preset CHEMONICS)
-const POS = { text: 'text-chem-darkgreen2', bg: 'bg-chem-green2-20', border: 'border-chem-green2-40', icon: 'text-chem-green2' };
-const NEG = { text: 'text-chem-eggplant', bg: 'bg-chem-orange2-15', border: 'border-chem-orange2/40', icon: 'text-chem-orange2' };
-const role = (n) => (n >= 0 ? POS : NEG);
-
-// ─── Composants de base ─────────────────────────────────────────────────────
-const Card = ({ children, className = '' }) => (
-  <section className={`bg-white p-3 rounded-2xl border border-chem-gray1-20 shadow-sm ${className}`}>{children}</section>
-);
-
-const SectionHeader = ({ icon: Icon, title, subtitle, color = 'text-chem-darkblue', help, action }) => {
-  const [showHelp, setShowHelp] = useState(false);
-  return (
-    <>
-      <div className={`flex items-center justify-between mb-1.5 border-b border-chem-gray1-10 pb-1 ${color}`}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Icon w={14} />
-          <div className="min-w-0">
-            <h3 className="text-[12px] font-bold uppercase tracking-wider truncate">{title}</h3>
-            {subtitle && <p className="text-[9px] font-medium text-chem-gray2 italic truncate">{subtitle}</p>}
-          </div>
-        </div>
-        <div className="flex items-center gap-0.5">
-          {action}
-          {help && (
-            <button type="button" onClick={() => setShowHelp((v) => !v)} aria-label={`Aide — ${title}`} aria-expanded={showHelp}
-              className={`p-1 rounded-lg transition-all ${showHelp ? 'text-chem-darkblue bg-chem-blue-10' : 'text-chem-gray1-40 hover:text-chem-darkblue'}`}>
-              <Info w={11} />
-            </button>
-          )}
-        </div>
-      </div>
-      {showHelp && (
-        <div className="mb-2 px-2.5 py-2 bg-chem-blue-10 rounded-xl border border-chem-blue-20 text-[9px] text-chem-darkblue font-medium leading-relaxed">{help}</div>
-      )}
-    </>
-  );
-};
-
-/** Champ numérique : brouillon texte local (virgule acceptée), valeur numérique remontée. */
-const NumInput = ({ value, onChange, className = '', disabled, ariaLabel }) => {
-  const [draft, setDraft] = useState(null);
-  const empty = value === '' || value === null || value === undefined;
-  // Hors saisie : format fr-FR (séparateur de milliers) ; en saisie : valeur brute.
-  const shown = draft ?? (empty ? '' : (Number(value) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 4 }));
-  return (
-    <input type="text" inputMode="decimal" aria-label={ariaLabel} disabled={disabled}
-      value={shown}
-      onFocus={(e) => {
-        const el = e.target;
-        setDraft(empty ? '' : String(value).replace('.', ','));
-        // Le passage au format brut fait perdre la sélection : on resélectionne tout,
-        // pour qu'une frappe remplace la valeur au lieu de s'y ajouter.
-        requestAnimationFrame(() => { if (document.activeElement === el) el.select(); });
-      }}
-      onChange={(e) => { setDraft(e.target.value); onChange(num(e.target.value)); }}
-      onBlur={() => setDraft(null)}
-      className={`bg-white border border-chem-gray1-20 rounded-md px-1.5 py-0.5 text-[12px] font-normal text-right text-chem-gray1 focus:outline-none focus:border-chem-darkblue disabled:bg-chem-gray1-10 disabled:text-chem-gray1-40 disabled:cursor-not-allowed ${className}`} />
-  );
-};
-
-const ModeBadge = ({ mode }) => (
-  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full border ${mode === 'air' ? 'bg-chem-blue-10 text-chem-darkblue border-chem-blue-20' : 'bg-white text-chem-darkaqua border-chem-aqua/40'}`}>
-    {mode === 'air' ? <Plane w={10} /> : <Waves w={10} />} {MODE_LABEL[mode]}
-  </span>
-);
-
 const SyncIndicator = ({ status }) => {
   if (status === 'saving') return (
     <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-chem-gray2">
@@ -152,6 +85,9 @@ export default function App() {
   const [notice, setNotice] = useState(null); // { kind: 'ok' | 'error' | 'info', text }
   const [busy, setBusy] = useState(null);
   const [open, setOpen] = useState(() => Object.fromEntries(YEARS.map((y) => [y, true])));
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem(VIEW_KEY) || 'guide'; } catch { return 'guide'; } });
+  const setView = (v) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* préférence non conservée */ } };
+  const today = useMemo(() => new Date(), []);
   const fileRef = useRef(null);
   const jsonRef = useRef(null);
   const firstRender = useRef(true);
@@ -202,7 +138,7 @@ export default function App() {
     const residual = simulate(d).years[year].residual;
     const qtys = source === 'zero' ? Object.fromEntries(REGULAR.map((c) => [c.id, 0]))
       : source === 'need' ? { ...d.quantification[year] }
-      : quantitiesFor(d, year, source, residual).qtys;
+      : quantitiesFor(d, year, source === 'current' ? d.methods[year] : source, residual).qtys;
     return { ...d, methods: { ...d.methods, [year]: 'manual' }, regularQtys: { ...d.regularQtys, [year]: qtys } };
   });
 
@@ -311,7 +247,30 @@ export default function App() {
     }
   };
 
-  const { surplus, bonus } = simulationData;
+  const { surplus } = simulationData;
+  const carry27 = simulationData.carry['2027'];
+
+  const sidePanel = (
+    <>
+      <div className={`p-4 rounded-[1.5rem] border shadow-lg ${role(surplus).bg} ${role(surplus).border}`}>
+        <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(surplus).text} flex items-center gap-1`}><TrendingUp w={12} /> Non dépensé FY2026</p>
+        <p className={`text-3xl font-normal tracking-tight ${role(surplus).text} mt-1 break-words`}>{fmtSigned(surplus, 0)}</p>
+        <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − réserve − dépenses FY26 ({data.fy26Spending === 'unspent' ? 'seules les accruals sont comptées' : 'quantités FY26 + accruals'})</p>
+      </div>
+      <Card>
+        <p className="text-[10px] font-semibold uppercase tracking-tighter text-chem-gray2 flex items-center gap-1"><Layers w={12} className="text-chem-blue" /> Report du FY2026</p>
+        <p className={`text-base font-normal mt-1 ${role(carry27).text}`}>{fmtSigned(carry27, 0)} <span className="text-[10px] text-chem-gray2">sur FY2027</span></p>
+        <p className="text-[9px] text-chem-gray2">{CARRYOVER_LABEL[simulationData.carryover]}</p>
+      </Card>
+      <ScenarioList store={store} busy={busy}
+        onSelect={(id) => setStore((s) => ({ ...s, activeId: id }))}
+        onRename={renameScenario}
+        onNew={() => addScenario(uniqueName('Nouveau scénario'))}
+        onDuplicate={(sc) => addScenario(uniqueName(`${sc.name} (copie)`), JSON.parse(JSON.stringify(sc.data)))}
+        onDelete={deleteScenario}
+        onExport={handleExport} />
+    </>
+  );
 
   // ─── Rendu ───
   return (
@@ -366,6 +325,36 @@ export default function App() {
           </div>
         )}
 
+        {/* ─── Choix de la vue ─── */}
+        <nav className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Vue">
+          {[['guide', Compass, 'Assistant pas à pas', 'pour préparer une commande à partir du budget'],
+            ['expert', Sliders, 'Vue détaillée', 'tous les paramètres et calculs (spécialistes)']].map(([v, Icon, label, hint]) => {
+            const active = view === v;
+            return (
+              <button key={v} type="button" role="tab" aria-selected={active} onClick={() => setView(v)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-2xl border transition-all text-left ${active ? 'bg-chem-darkblue border-chem-darkblue text-white shadow-sm' : 'bg-white border-chem-gray1-20 text-chem-gray1 hover:border-chem-darkblue'}`}>
+                <Icon w={14} />
+                <span>
+                  <span className="block text-[11px] font-semibold uppercase">{label}</span>
+                  <span className={`block text-[9px] ${active ? 'text-white/80' : 'text-chem-gray2'}`}>{hint}</span>
+                </span>
+              </button>
+            );
+          })}
+          <span className="ml-auto text-[10px] text-chem-gray2">Scénario actif : <span className="font-semibold text-chem-gray1">{scenario.name}</span></span>
+        </nav>
+
+        {view === 'guide' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+            <main className="lg:col-span-9">
+              <Assistant scenario={scenario} data={data} sim={simulationData} today={today} busy={busy}
+                onExport={() => handleExport()} updateData={updateData} setBudget={setBudget} setReserve={setReserve}
+                setMethod={setMethod} setMaximize={setMaximize} setMode={setMode} setYearQty={setYearQty}
+                fillRegularQtys={fillRegularQtys} updateAccruals={updateAccruals} />
+            </main>
+            <aside className="lg:col-span-3 space-y-3">{sidePanel}</aside>
+          </div>
+        ) : (<>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* ─── Volet gauche : configuration ─── */}
           <aside className="lg:col-span-3 space-y-3">
@@ -493,6 +482,24 @@ export default function App() {
                           <NumInput value={data.reserves[y]} onChange={(v) => setReserve(y, v)} ariaLabel={`Réserve d’assistance FY ${y}`} className="w-full block mt-0.5" />
                         </label>
                       </div>
+                      {y === '2026' && (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <label className="text-[9px] font-semibold uppercase text-chem-gray2">FY26 dépensé ?
+                            <select value={data.fy26Spending} onChange={(e) => updateData((d) => ({ ...d, fy26Spending: e.target.value }))} aria-label="Utilisation du budget FY2026"
+                              className="w-full block mt-0.5 bg-white border border-chem-gray1-20 rounded-md px-1 py-0.5 text-[10px] font-semibold normal-case text-chem-darkblue focus:outline-none">
+                              <option value="unspent">Non (accruals seules)</option>
+                              <option value="planned">Oui (quantités FY26)</option>
+                            </select>
+                          </label>
+                          <label className="text-[9px] font-semibold uppercase text-chem-gray2">Report du surplus
+                            <select value={data.carryover} onChange={(e) => updateData((d) => ({ ...d, carryover: e.target.value }))} aria-label="Report du surplus FY2026"
+                              className="w-full block mt-0.5 bg-white border border-chem-gray1-20 rounded-md px-1 py-0.5 text-[10px] font-semibold normal-case text-chem-darkblue focus:outline-none">
+                              <option value="fy27">Tout sur FY2027</option>
+                              <option value="smooth">÷ 4 sur FY27-FY30</option>
+                            </select>
+                          </label>
+                        </div>
+                      )}
                       <p className="text-[9px] text-chem-gray2 text-right">
                         Budget intrants {y === '2026' ? '' : '(report inclus) '}: <span className="text-chem-gray1">{fmtUsd(yr.available, 0)}</span>
                       </p>
@@ -507,37 +514,20 @@ export default function App() {
           <main className="lg:col-span-7 space-y-3">
             <QuantificationCard data={data} sim={simulationData} onChange={(y, id, v) => setYearQty('quantification', y, id, v)} />
             {YEARS.map((y) => (
-              <YearTable key={y} yr={simulationData.years[y]} isOpen={open[y]} onToggle={() => setOpen((o) => ({ ...o, [y]: !o[y] }))}
+              <YearTable key={y} yr={simulationData.years[y]} isOpen={open[y]}
+                delivery={assessDelivery({ year: y, mode: data.logistics[y], leadTimes: data.leadTimes, needMonth: data.needDates[y], today })} onToggle={() => setOpen((o) => ({ ...o, [y]: !o[y] }))}
                 data={data} updateAccruals={updateAccruals} updateManualQty={updateManualQty}
                 updateRegularQty={(id, v) => setYearQty('regularQtys', y, id, v)} fillRegularQtys={(src) => fillRegularQtys(y, src)} />
             ))}
           </main>
 
           {/* ─── Volet droit : KPI & scénarios ─── */}
-          <aside className="lg:col-span-2 space-y-3">
-            <div className={`p-4 rounded-[1.5rem] border shadow-lg ${role(surplus).bg} ${role(surplus).border}`}>
-              <p className={`text-[10px] font-semibold uppercase tracking-tighter ${role(surplus).text} flex items-center gap-1`}><TrendingUp w={12} /> Surplus FY2026</p>
-              <p className={`text-3xl font-normal tracking-tight ${role(surplus).text} mt-1 break-words`}>{fmtSigned(surplus, 0)}</p>
-              <p className="text-[9px] text-chem-gray2 mt-1">Budget FY26 − réserve d’assistance − dépenses FY26 (accruals inclus)</p>
-            </div>
-            <Card>
-              <p className="text-[10px] font-semibold uppercase tracking-tighter text-chem-gray2 flex items-center gap-1"><Layers w={12} className="text-chem-blue" /> Report annuel lissé</p>
-              <p className={`text-base font-normal mt-1 ${role(bonus).text}`}>{fmtSigned(bonus, 0)}</p>
-              <p className="text-[9px] text-chem-gray2">Surplus FY26 / 4, ajouté à FY27, FY28, FY29 et FY30</p>
-            </Card>
-
-            <ScenarioList store={store} busy={busy}
-              onSelect={(id) => setStore((s) => ({ ...s, activeId: id }))}
-              onRename={renameScenario}
-              onNew={() => addScenario(uniqueName('Nouveau scénario'))}
-              onDuplicate={(sc) => addScenario(uniqueName(`${sc.name} (copie)`), JSON.parse(JSON.stringify(sc.data)))}
-              onDelete={deleteScenario}
-              onExport={handleExport} />
-          </aside>
+          <aside className="lg:col-span-2 space-y-3">{sidePanel}</aside>
         </div>
 
         {/* ─── Synthèse pluriannuelle ─── */}
         <Synthesis sim={simulationData} />
+        </>)}
 
         <footer className="text-center text-[9px] text-chem-gray2 py-2">
           U.S. Government Global Health Supply Chain Program — Procurement and Supply Management (GHSC-PSM) · Données enregistrées localement dans ce navigateur
@@ -547,73 +537,8 @@ export default function App() {
   );
 }
 
-// ─── Quantification Niger (besoins FY27-FY30) ────────────────────────────────
-function QuantificationCard({ data, sim, onChange }) {
-  const [isOpen, setIsOpen] = useState(() => REGULAR.some((c) => FUTURE_YEARS.some((y) => num(data.quantification[y][c.id]) > 0)));
-  const td = 'px-1.5 py-1 text-right';
-  return (
-    <section className="bg-white rounded-2xl border border-chem-gray1-20 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 p-3">
-        <button type="button" onClick={() => setIsOpen((v) => !v)} aria-expanded={isOpen} className="flex items-center gap-2 flex-1 text-left">
-          {isOpen ? <ChevronDown w={16} className="text-chem-darkblue" /> : <ChevronRight w={16} className="text-chem-gray1-40" />}
-          <span className={`text-[13px] font-bold tracking-tight ${isOpen ? 'text-chem-darkblue' : ''}`}>Quantification Niger</span>
-          <span className="text-[9px] font-medium italic text-chem-gray2">quantités demandées au gouvernement américain, FY27-FY30</span>
-        </button>
-      </div>
-      {isOpen && (
-        <div className="border-t border-chem-gray1-10 overflow-x-auto">
-          <p className="px-3 py-1.5 text-[9px] text-chem-darkblue bg-chem-blue-10 border-b border-chem-blue-20">
-            Ces besoins servent à la méthode « Split quantification » et au pré-remplissage des quantités manuelles ; leur couverture s’affiche dans chaque tableau annuel.
-          </p>
-          <table className="w-full min-w-[600px] tabular-nums">
-            <thead>
-              <tr className="bg-chem-gray1-5 text-chem-gray2 border-b border-chem-gray1-20 text-[10px] font-semibold uppercase">
-                <th className="px-2 py-1.5 text-left">Intrant</th>
-                <th className="px-1.5 py-1.5 text-right">Prix EXW</th>
-                {FUTURE_YEARS.map((y) => <th key={y} className="px-1.5 py-1.5 text-right">FY {y}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {REGULAR.map((c) => (
-                <tr key={c.id} className="border-b border-chem-gray1-10 text-[11px]">
-                  <td className="px-2 py-1 font-semibold">{c.name}</td>
-                  <td className={`${td} text-chem-gray2`}>{fmtUsd(data.commodities[c.id].price)}</td>
-                  {FUTURE_YEARS.map((y) => (
-                    <td key={y} className={td}>
-                      <NumInput value={data.quantification[y][c.id]} onChange={(v) => onChange(y, c.id, v)} ariaLabel={`Quantification ${c.name} FY ${y}`} className="w-24" />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="text-[10px]">
-              <tr className="border-t border-chem-gray1-20">
-                <td className="px-2 py-1 font-semibold uppercase text-chem-gray2" colSpan={2}>Coût landed de la quantification</td>
-                {FUTURE_YEARS.map((y) => <td key={y} className={td}>{fmtUsd(sim.years[y].needLanded, 0)}</td>)}
-              </tr>
-              <tr>
-                <td className="px-2 py-1 font-semibold uppercase text-chem-gray2" colSpan={2}>Budget résiduel (après MILDA)</td>
-                {FUTURE_YEARS.map((y) => <td key={y} className={td}>{fmtUsd(sim.years[y].residual, 0)}</td>)}
-              </tr>
-              <tr>
-                <td className="px-2 py-1 font-semibold uppercase text-chem-gray2" colSpan={2}>Couverture possible</td>
-                {FUTURE_YEARS.map((y) => {
-                  const yr = sim.years[y];
-                  if (!yr.needLanded) return <td key={y} className={`${td} text-chem-gray2`}>—</td>;
-                  const cov = Math.max(0, yr.residual) / yr.needLanded;
-                  return <td key={y} className={`${td} ${cov >= 1 ? POS.text : NEG.text}`}>{fmtNum(Math.min(cov, 9.99) * 100, 0)} %</td>;
-                })}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
 // ─── Tableau d'un exercice ───────────────────────────────────────────────────
-function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty, updateRegularQty, fillRegularQtys }) {
+function YearTable({ yr, delivery, isOpen, onToggle, data, updateAccruals, updateManualQty, updateRegularQty, fillRegularQtys }) {
   const r = role(yr.balance);
   const manual = yr.method === 'manual';
   const hasNeed = yr.lines.some((l) => l.need > 0);
@@ -630,6 +555,16 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
         {yr.year !== '2026' && (
           <span className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full border ${manual ? 'bg-chem-yellow/20 text-chem-gray1 border-chem-yellow' : 'bg-chem-gray1-10 text-chem-gray2 border-chem-gray1-20'}`}>
             {METHOD_LABEL[yr.method]}{yr.maximize ? ' · budget maximisé' : ''}
+          </span>
+        )}
+        {(yr.year === '2026' || delivery.status === 'closed') ? (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full border bg-chem-gray1-10 text-chem-gray2 border-chem-gray1-20">
+            {yr.year === '2026' && yr.unspent ? 'Exercice clos · non dépensé' : 'Exercice clos'}
+          </span>
+        ) : (
+          <span title={`Commande aujourd’hui : arrivée ${fmtMonth(delivery.arrivalMin)} – ${fmtMonth(delivery.arrivalMax)} ; besoin ${fmtMonth(delivery.need)}`}
+            className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded-full border ${delivery.status === 'ok' ? `${POS.bg} ${POS.border} ${POS.text}` : delivery.status === 'risk' ? 'bg-chem-yellow/15 border-chem-yellow text-chem-gray1' : `${NEG.bg} ${NEG.border} ${NEG.text}`}`}>
+            {STATUS_LABEL[delivery.status]}
           </span>
         )}
         <span className="ml-auto flex items-end gap-4">
@@ -741,7 +676,7 @@ function YearTable({ yr, isOpen, onToggle, data, updateAccruals, updateManualQty
               )}
               {yr.year !== '2026' && (
                 <tr className="text-[10px]">
-                  <td className="px-2 py-0.5 font-semibold uppercase text-left">Report annuel lissé</td>
+                  <td className="px-2 py-0.5 font-semibold uppercase text-left">Report FY2026</td>
                   <td /><td /><td />
                   <td className="px-2 py-0.5 text-right tabular-nums">{fmtSigned(yr.bonus)}</td>
                 </tr>
@@ -842,7 +777,7 @@ function Synthesis({ sim }) {
               <th className="px-2 py-1.5 text-left">Logistique</th>
               <th className="px-2 py-1.5 text-right">Budget total</th>
               <th className="px-2 py-1.5 text-right">Réserve</th>
-              <th className="px-2 py-1.5 text-right">Report lissé</th>
+              <th className="px-2 py-1.5 text-right">Report FY26</th>
               <th className="px-2 py-1.5 text-right">Budget intrants</th>
               <th className="px-2 py-1.5 text-right">Dépenses</th>
               <th className="px-2 py-1.5 text-right">Solde final</th>
