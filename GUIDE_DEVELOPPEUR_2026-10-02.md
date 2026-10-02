@@ -36,14 +36,13 @@ docs/                 cahier des charges d'origine
       "reserves":    { "2026": 0, …, "2030": 0 },            // réserve d'assistance
       "methods":     { "2027": "quantif" | "manual", … },     // ancien "split" → "quantif"
       "fy26Spending": "unspent" | "planned",                  // FY26 clos : accruals seules / + quantités FY26
-      "carryover":   "fy27" | "smooth",                       // report des soldes FY26
-      "fy26AssistanceSpent": 0,                               // assistance engagée au 30/09/2026
+      "yearAccruals": { "2026": 1106690, "2027": 0, … },       // accruals par année
+      "carryRules":  { "2026": "next" | "smooth" | "none", …, "2029": … },  // report du solde
       "leadTimes":   { "air": { "min": 4, "max": 7 }, "sea": { "min": 6, "max": 13 } },  // mois
       "needDates":   { "2027": "2027-01", … },                // produits attendus au Niger
       "commodities": { "1": { "price": 13.79, "landedSea": 20.685, "landedAir": 22.2584, "qty26": 15000 }, … },  // coûts unitaires $
       // ancien format { price, air (%), sea (%) } converti automatiquement en coûts livrés
       "logistics":   { "2026": "air", …, "2030": "sea" },
-      "accruals":    { "items": [ { "id": "acc1", "desc": "mRDTs (RO Accruals)", "refs": "", "amount": 1106690, "freightPct": 0 } ] },  // au 30/09/2026
       "manualQtys":  { "2026": { "11": 0, "12": 0, "13": 0 }, … },   // MILDA
       "quantification": { "2027": { "1": 0, …, "10": 0 }, …, "2031": {…} },  // PSN 2027-2031
       "regularQtys":    { "2027": { "1": 0, …, "10": 0 }, … }         // méthode manual
@@ -55,16 +54,13 @@ reprend la même structure ; `normalizeScenarioData()` complète tout fichier pa
 
 ## Moteur de calcul (`simulate`)
 
-- FY26 : `Landed = Q × P × (1 + r)` avec r selon le mode FY26 ; MILDA comptées
-  uniquement en mode Mer ; accruals `EXW × (1 + taux)`.
-  Avec `fy26Spending = "unspent"`, seules les accruals sont comptées.
-  Surplus = budget − réserve − total ; report `carry[y]` = surplus en FY27 (`fy27`)
-  ou surplus / 4 par année (`smooth`). Solde assistance = réserve FY26 −
-  `fy26AssistanceSpent`, reporté selon la même règle (`assistCarry[y]`) et ajouté à
-  l'assistance disponible (`assistance = réserve + assistCarry`), pas au budget produits.
-  Anciens scénarios sans ce champ : réserve FY26 considérée comme dépensée. Les scénarios sans ces champs gardent
-  `planned` + `smooth` (comportement d'origine).
-- FY27-30 : `dispo = budget − réserve + carry[y]` ; `résiduel = dispo − coût landed MILDA`.
+- FY26 (clos) : solde = budget − accruals (− commandes FY26 si `fy26Spending = "planned"`,
+  anciens scénarios) ; la réserve FY26 n'est pas déduite.
+- Report : chaque année FY26-FY29 transmet son solde selon `carryRules[y]` — `next`
+  (année suivante), `smooth` (parts égales sur toutes les années suivantes), `none`.
+  Le report reçu s'ajoute au budget produits. Les anciens scénarios (liste d'accruals,
+  assistance engagée, `carryover`) sont convertis sans changer leur résultat.
+- FY27-30 : `dispo = budget + report reçu − réserve − accruals` ; solde = dispo − commandes ; `résiduel = dispo − coût landed MILDA`.
   Quantités des intrants réguliers (`quantitiesFor`) selon `methods[y]` :
   - `quantif` (« Automatique (split PSN) ») : `w_i = Qq_i P_i / Σ Qq_j P_j`
     (split = poids EXW du PSN de l'année) ; `r_i = landed_i / P_i − 1` selon le

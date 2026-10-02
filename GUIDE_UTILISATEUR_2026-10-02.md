@@ -8,18 +8,23 @@ l'onglet suivant. Tout est enregistré automatiquement dans le navigateur
 
 ## 1. Budget
 
-- Pour chaque année fiscale **FY2026 à FY2030** (1er octobre – 30 septembre) :
-  **budget disponible** du MOU et **réserve d'assistance** (assistance technique,
-  entreposage, distribution).
-- **Clôture de FY2026 au 30 septembre 2026** :
-  - une ligne par **accrual** (intitulé, références, montant engagé) — « Ajouter un
-    accrual », corbeille pour supprimer ;
-  - **assistance engagée** au 30/09/2026 sur la réserve FY2026 ;
-  - l'outil calcule le **solde produits** (budget − réserve − accruals) et le
-    **solde assistance** (réserve − assistance engagée) ;
-  - **traitement du solde** : *reporté en totalité sur FY2027* ou *lissé sur les
-    autres années du MOU*. Chaque solde reste dans son enveloppe : le tableau montre,
-    par année, le **budget pour les produits** et l'**assistance disponible**.
+Un seul tableau, une ligne par année fiscale **FY2026 à FY2030** (1er octobre – 30
+septembre) :
+
+| Colonne | Contenu |
+| --- | --- |
+| Budget MOU | budget disponible dans le cadre du MOU |
+| Réserve assistance | assistance technique, entreposage, distribution (sans objet pour FY2026, clos) |
+| Accruals | montants engagés (pour FY2026 : au 30/09/2026) |
+| Report reçu | soldes reportés depuis les années précédentes (calculé) |
+| = Budget produits | budget MOU + report reçu − réserve − accruals (calculé) |
+| Report du solde | *Année suivante*, *Lissé sur les années suivantes* ou *Aucun report* |
+
+Le **solde** d'une année est, pour **FY2026** (clos), budget − accruals : la réserve
+d'assistance non engagée en fait partie. Pour les années suivantes, c'est la part du
+budget produits non utilisée dans les scénarios. Il est reporté selon le choix de la
+dernière colonne : en totalité sur l'année suivante, ou à parts égales sur toutes les
+années suivantes du MOU.
 
 ## 2. Paramètres logistiques
 

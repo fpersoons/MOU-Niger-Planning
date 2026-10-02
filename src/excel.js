@@ -4,7 +4,7 @@
 
 import {
   CATEGORIES, COMMODITIES, FUTURE_YEARS, METHODS, METHOD_LABEL, MILDA, REGULAR, YEARS, byId,
-  CARRYOVER_LABEL, PSN_YEARS, newAccrual, normalizeScenarioData, parseVal, simulate,
+  CARRY_LABEL, CARRY_RULES, CARRY_YEARS, PSN_YEARS, normalizeScenarioData, parseVal, simulate,
 } from './model.js';
 import { STATUS_LABEL, assessDelivery, fmtDay, fmtMonth } from './logistics.js';
 
@@ -97,7 +97,7 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
   ot.getCell(1).font = { ...FONT, bold: true };
   for (const txt of [
     `Scénario : ${scenario.name} — situation au ${fmtDay(today)}`,
-    `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accrualsLanded).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde produits ${Math.round(sim.surplus).toLocaleString('fr-FR')} $ et solde assistance ${Math.round(sim.assistanceBalance).toLocaleString('fr-FR')} $, reportés ${lowerFirst(CARRYOVER_LABEL[sim.carryover])}.`,
+    `FY2026 (clos au 30/09/2026) : accruals ${Math.round(sim.years['2026'].accruals).toLocaleString('fr-FR')} $${data.fy26Spending === 'unspent' ? '' : ' + commandes FY26 saisies'} ; solde ${Math.round(sim.surplus).toLocaleString('fr-FR')} $, report : ${lowerFirst(CARRY_LABEL[sim.years['2026'].carryRule])}.`,
     `Délais estimés de la commande à l'arrivée au Niger : avion ${data.leadTimes.air.min}-${data.leadTimes.air.max} mois ; bateau + route via Lomé (Togo - Burkina Faso - Niger, frontière Bénin fermée) ${data.leadTimes.sea.min}-${data.leadTimes.sea.max} mois. Hypothèses à confirmer avec GHSC-PSM.`,
   ]) { const r = wo.addRow([txt]); r.getCell(1).font = FONT; }
   wo.addRow([]);
@@ -161,14 +161,14 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
       lines.forEach((l) => writeLine(ws, l));
     }
     writeTotal(ws, 'Budget de base', yr.base);
+    if (yr.bonus) writeTotal(ws, 'Report reçu (soldes des années précédentes)', yr.bonus);
     if (yr.reserve) writeTotal(ws, 'Réserve assistance (AT, entreposage, distribution)', -yr.reserve);
-    if (y !== '2026') writeTotal(ws, `Report du solde produits FY2026 (${lowerFirst(CARRYOVER_LABEL[sim.carryover])})`, yr.bonus);
+    if (yr.accruals) writeTotal(ws, y === '2026' ? 'Accruals au 30/09/2026' : 'Accruals', -yr.accruals);
     writeTotal(ws, 'Budget disponible pour les intrants', yr.available, { bold: true });
     if (yr.needLanded) writeTotal(ws, 'Coût landed de la quantification (pour mémoire)', yr.needLanded);
     writeTotal(ws, 'Total dépenses', yr.total, { bold: true });
     writeTotal(ws, 'Solde final (reste)', yr.balance, { bold: true, sign: true });
-    if (y === '2026') writeTotal(ws, `Solde assistance FY2026 (réserve − assistance engagée ${Math.round(yr.assistanceSpent).toLocaleString('fr-FR')} $), reporté`, yr.assistanceBalance);
-    else if (yr.assistCarry || yr.reserve) writeTotal(ws, 'Pour mémoire : assistance disponible (réserve + report du solde assistance FY2026)', yr.assistance);
+    if (y !== '2030') writeTotal(ws, `Report du solde : ${lowerFirst(CARRY_LABEL[yr.carryRule])}`, yr.carryOut);
     ws.addRow([]);
   }
 
@@ -184,13 +184,14 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   wp.addRow([]);
-  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Méthode', ...MILDA.map((m) => `Qté ${m.name}`)]);
+  const h2 = wp.addRow(['Exercice', 'Mode logistique', 'Budget initial ($)', 'Réserve assistance ($)', 'Accruals ($)', 'Report du solde', 'Méthode', ...MILDA.map((m) => `Qté ${m.name}`)]);
   h2.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
   for (const y of YEARS) {
     const row = wp.addRow([`FY${y}`, MODE_LABEL[data.logistics[y]], data.budgets[y], Number(data.reserves[y]) || 0,
+      Number(data.yearAccruals[y]) || 0, CARRY_YEARS.includes(y) ? CARRY_LABEL[data.carryRules[y]] : '—',
       y === '2026' ? '—' : METHOD_LABEL[data.methods[y]],
       ...MILDA.map((m) => Number(data.manualQtys[y][m.id]) || 0)]);
-    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; [6, 7, 8].forEach((i) => (row.getCell(i).numFmt = QTY));
+    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = MONEY; row.getCell(5).numFmt = MONEY; [8, 9, 10].forEach((i) => (row.getCell(i).numFmt = QTY));
     row.eachCell({ includeEmpty: true }, (cell) => (cell.font = FONT));
   }
   // Quantification PSN et quantités manuelles (FY27-FY30)
@@ -203,21 +204,10 @@ export const buildWorkbook = async (scenario, today = new Date()) => {
       row.eachCell({ includeEmpty: true }, (cell, i) => { cell.font = FONT; if (i > 1) cell.numFmt = QTY; });
     }
   }
-  // Accruals (engagements) au 30/09/2026 : une ligne par engagement
-  wp.addRow([]);
-  const ha = wp.addRow(['Accruals au 30/09/2026', 'Références', 'Montant EXW ($)', 'Taux fret aérien (%)']);
-  ha.eachCell((c) => { c.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HEADER_FILL; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
-  for (const a of data.accruals.items) {
-    const row = wp.addRow([a.desc || 'Accruals', a.refs || '', a.amount, pct(a.freightPct)]);
-    row.eachCell({ includeEmpty: true }, (c) => (c.font = FONT));
-    row.getCell(3).numFmt = MONEY; row.getCell(4).numFmt = PCT;
-  }
   wp.addRow([]);
   const acc = [];
   acc.push(
     ['Options — FY2026 dépensé', data.fy26Spending === 'unspent' ? 'Non' : 'Oui'],
-    ['Options — Report du surplus FY2026', CARRYOVER_LABEL[data.carryover]],
-    ['Options — Assistance engagée au 30/09/2026 ($)', data.fy26AssistanceSpent, MONEY],
     ['Délais — Avion min (mois)', data.leadTimes.air.min],
     ['Délais — Avion max (mois)', data.leadTimes.air.max],
     ['Délais — Bateau min (mois)', data.leadTimes.sea.min],
@@ -257,13 +247,15 @@ const findCol = (header, tests) => header.findIndex((h) => tests.some((t) => t(n
 /**
  * Lit les paramètres d'un classeur (tableau de lignes par feuille, format SheetJS
  * `sheet_to_json(..., { header: 1 })`). Reconnaît le tableau des intrants par son
- * en-tête « Intrant », celui des exercices par « Exercice », et les lignes Accruals.
+ * en-tête « Intrant », celui des exercices par « Exercice » (budgets, réserves, accruals, report).
  * Renvoie { data, found } où found compte les intrants reconnus.
  */
 export const parseWorkbookRows = (sheets, base) => {
   const data = normalizeScenarioData(base);
   let found = 0;
-  let legacyAcc = null;
+  let legacyAcc = null; // anciens formats d'accruals FY2026
+  let legacyAssist = 0;
+  let newAcc = false;
   for (const rows of sheets) {
     for (let i = 0; i < rows.length; i++) {
       const header = rows[i] || [];
@@ -301,6 +293,8 @@ export const parseWorkbookRows = (sheets, base) => {
         const cBudget = findCol(header, [(h) => h.includes('budget')]);
         const cReserve = findCol(header, [(h) => h.includes('reserve')]);
         const cMethod = findCol(header, [(h) => h.includes('methode') || h.includes('method')]);
+        const cAcc = findCol(header, [(h) => h.includes('accrual')]);
+        const cCarry = findCol(header, [(h) => h.includes('report')]);
         const cMilda = MILDA.map((m) => header.findIndex((h) => norm(h).includes(norm(m.name))));
         for (let j = i + 1; j < rows.length; j++) {
           const r = rows[j] || [];
@@ -309,6 +303,12 @@ export const parseWorkbookRows = (sheets, base) => {
           if (cMode >= 0 && r[cMode]) data.logistics[y] = /air/i.test(String(r[cMode])) ? 'air' : 'sea';
           if (cBudget >= 0 && r[cBudget] !== undefined && r[cBudget] !== null && r[cBudget] !== '') data.budgets[y] = parseVal(r[cBudget]);
           if (cReserve >= 0 && r[cReserve] !== undefined && r[cReserve] !== null && r[cReserve] !== '') data.reserves[y] = parseVal(r[cReserve]);
+          if (cAcc >= 0 && r[cAcc] !== undefined && r[cAcc] !== null && r[cAcc] !== '') { data.yearAccruals[y] = parseVal(r[cAcc]); newAcc = true; }
+          if (cCarry >= 0 && CARRY_YEARS.includes(y)) {
+            const v = norm(r[cCarry]);
+            const rule = CARRY_RULES.find((k) => norm(CARRY_LABEL[k]) === v) || (/lisse/.test(v) ? 'smooth' : /aucun/.test(v) ? 'none' : /suivante/.test(v) ? 'next' : null);
+            if (rule) data.carryRules[y] = rule;
+          }
           if (cMethod >= 0 && y !== '2026') {
             const v = norm(r[cMethod]);
             const m = METHODS.find((k) => norm(METHOD_LABEL[k]) === v) || (/manuel/.test(v) ? 'manual' : /quantif|split|psn/.test(v) ? 'quantif' : null);
@@ -332,8 +332,9 @@ export const parseWorkbookRows = (sheets, base) => {
       // Options et délais
       if (first.startsWith('options')) {
         const v = norm(header[1]);
-        if (first.includes('assistance')) data.fy26AssistanceSpent = parseVal(header[1]);
-        else if (first.includes('report')) data.carryover = v.includes('lisse') || v.endsWith('4') ? 'smooth' : 'fy27';
+        // anciens fichiers : assistance engagée (ajoutée aux accruals FY2026) et report du surplus FY2026
+        if (first.includes('assistance')) legacyAssist = parseVal(header[1]);
+        else if (first.includes('report')) data.carryRules['2026'] = v.includes('lisse') || v.endsWith('4') ? 'smooth' : 'next';
         else if (first.includes('depense')) data.fy26Spending = v === 'non' ? 'unspent' : 'planned';
       }
       if (first.startsWith('delais')) {
@@ -343,26 +344,20 @@ export const parseWorkbookRows = (sheets, base) => {
         else if (mode && /max/.test(first)) data.leadTimes[mode].max = parseVal(header[1]);
         else if (y && /^\d{4}-\d{2}/.test(String(header[1] ?? ''))) data.needDates[y] = String(header[1]).slice(0, 7);
       }
-      // Tableau des accruals au 30/09/2026 (une ligne par engagement, jusqu'à la ligne vide)
+      // Anciens fichiers : tableau des accruals au 30/09/2026 ou lignes « Accruals — … »
       if (first === 'accrualsau30092026') {
-        const items = [];
+        legacyAcc = 0;
         for (let j = i + 1; j < rows.length; j++) {
           const r = rows[j] || [];
           if (r.every((v) => v === null || v === undefined || v === '')) break;
-          items.push({ ...newAccrual(String(r[0] ?? ''), parseVal(r[2])), refs: String(r[1] ?? ''), freightPct: parseVal(r[3], true) });
+          legacyAcc += parseVal(r[2]) * (1 + parseVal(r[3], true) / 100);
         }
-        data.accruals = { items };
-      } else if (first.startsWith('accruals')) {
-        // Ancien format : une seule ligne « Accruals — Intitulé / Références / Montant / Taux »
-        const v = header[1];
-        if (!legacyAcc) { legacyAcc = newAccrual(); data.accruals = { items: [legacyAcc] }; }
-        if (first.includes('intitule')) legacyAcc.desc = String(v ?? '');
-        else if (first.includes('reference')) legacyAcc.refs = String(v ?? '');
-        else if (first.includes('montant')) legacyAcc.amount = parseVal(v);
-        else if (first.includes('fret') || first.includes('taux')) legacyAcc.freightPct = parseVal(v, true);
+      } else if (first.startsWith('accruals') && first.includes('montant')) {
+        legacyAcc = (legacyAcc || 0) + parseVal(header[1]);
       }
     }
   }
+  if (!newAcc && legacyAcc !== null) data.yearAccruals['2026'] = legacyAcc + legacyAssist;
   return { data, found };
 };
 

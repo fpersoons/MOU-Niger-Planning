@@ -66,9 +66,10 @@ export const emailText = (scenarioName, yr, a, data) => {
   lines.push(`MOU Niger — Quantités proposées FY${yr.year} (scénario « ${scenarioName} »)`);
   const parts = [`budget ${fmtUsd(yr.base, 0)}`];
   if (yr.reserve) parts.push(`− réserve assistance ${fmtUsd(yr.reserve, 0)}`);
-  if (yr.bonus) parts.push(`${yr.bonus >= 0 ? '+' : '−'} report du solde FY2026 ${fmtUsd(Math.abs(yr.bonus), 0)}`);
+  if (yr.bonus) parts.push(`${yr.bonus >= 0 ? '+' : '−'} report reçu ${fmtUsd(Math.abs(yr.bonus), 0)}`);
+  if (yr.accruals) parts.push(`− accruals ${fmtUsd(yr.accruals, 0)}`);
   lines.push(`Budget disponible pour les produits : ${fmtUsd(yr.available, 0)} (${parts.join(' ')})`);
-  if (yr.assistance) lines.push(`Assistance disponible (assistance technique, entreposage, distribution) : ${fmtUsd(yr.assistance, 0)}${yr.assistCarry ? ` (réserve ${fmtUsd(yr.reserve, 0)} + report du solde d'assistance FY2026 ${fmtUsd(yr.assistCarry, 0)})` : ''}`);
+  if (yr.assistance) lines.push(`Assistance disponible (assistance technique, entreposage, distribution) : ${fmtUsd(yr.assistance, 0)}`);
   lines.push(`Transport : ${MODE_PLAIN[yr.mode].toLowerCase()} — ${deliverySentence(a, yr.mode)}`);
   lines.push('');
   for (const l of yr.lines.filter((x) => x.qty > 0)) {
@@ -95,8 +96,8 @@ export const copyText = async (text) => {
 const TERMS = [
   ['Année fiscale (FY)', 'Année budgétaire américaine, du 1er octobre au 30 septembre. FY2027 = 1er octobre 2026 – 30 septembre 2027.'],
   ['Réserve d’assistance', 'Partie du budget réservée à l’assistance technique, à l’entreposage et à la distribution ; elle ne sert pas à acheter des produits.'],
-  ['Accruals', 'Montants engagés au 30 septembre 2026 sur le budget FY2026 ; ils sont déduits avant de calculer le solde.'],
-  ['Solde FY2026', 'Budget FY2026 non utilisé au 30 septembre 2026 (produits et assistance), reporté sur FY2027 ou lissé sur les autres années du MOU.'],
+  ['Accruals', 'Montants engagés sur le budget d’une année (pour FY2026 : au 30 septembre 2026) ; ils sont déduits du budget.'],
+  ['Solde et report', 'Budget d’une année non utilisé : pour FY2026, budget − accruals ; ensuite, la part du budget produits non commandée. Il est reporté sur l’année suivante, lissé sur les années suivantes, ou non reporté.'],
   ['Prix EXW', 'Prix « départ usine » : prix du produit seul, avant transport.'],
   ['Coût livré (landed)', 'Prix du produit + transport jusqu’au Niger, par unité, selon le mode : bateau + route via Lomé, ou avion.'],
   ['PSN', 'Quantités de produits financées par l’USG dans le PSN 2027-2031, par année.'],

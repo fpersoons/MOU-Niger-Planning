@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FUTURE_YEARS, REGULAR, defaultScenarioData, newAccrual, normalizeScenarioData, quantitiesFor, simulate,
+  FUTURE_YEARS, REGULAR, defaultScenarioData, normalizeScenarioData, quantitiesFor, simulate,
 } from './model.js';
 import { exportScenarioXlsx, importWorkbook } from './excel.js';
 import { NEG, POS, fmtDate, fmtUsd } from './ui.jsx';
@@ -118,10 +118,6 @@ export default function App() {
   const updateField = (id, field, value) =>
     updateData((d) => ({ ...d, commodities: { ...d.commodities, [id]: { ...d.commodities[id], [field]: value } } }));
   // Accruals au 30/09/2026 : liste de lignes (ajout, modification, suppression)
-  const updateAccrual = (id, field, value) => updateData((d) => ({ ...d, accruals: { items: d.accruals.items.map((a) => (a.id === id ? { ...a, [field]: value } : a)) } }));
-  const addAccrual = () => updateData((d) => ({ ...d, accruals: { items: [...d.accruals.items, newAccrual('Nouvel engagement')] } }));
-  const removeAccrual = (id) => updateData((d) => ({ ...d, accruals: { items: d.accruals.items.filter((a) => a.id !== id) } }));
-  const accrualHandlers = { updateAccrual, addAccrual, removeAccrual };
   const setMode = (year, mode) => updateData((d) => ({ ...d, logistics: { ...d.logistics, [year]: mode } }));
   const setBudget = (year, value) => updateData((d) => ({ ...d, budgets: { ...d.budgets, [year]: value } }));
   const setReserve = (year, value) => updateData((d) => ({ ...d, reserves: { ...d.reserves, [year]: Math.max(0, value) } }));
@@ -312,7 +308,7 @@ export default function App() {
         <main>
           {tab === 'budget' && (
             <BudgetView data={data} sim={sim} today={today} updateData={updateData}
-              setBudget={setBudget} setReserve={setReserve} accrualHandlers={accrualHandlers} />
+              setBudget={setBudget} setReserve={setReserve} />
           )}
           {tab === 'logistics' && (
             <LogisticsView data={data} today={today} updateField={updateField} updateData={updateData}

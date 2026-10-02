@@ -4,7 +4,7 @@
 // Transport, date de besoin, statut de livraison et quantités à commander.
 
 import { useMemo, useState } from 'react';
-import { FUTURE_YEARS, REGULAR, num, psnSplit, simulate } from './model.js';
+import { CARRY_LABEL, FUTURE_YEARS, REGULAR, num, psnSplit, simulate } from './model.js';
 import { assessDelivery, fmtMonth } from './logistics.js';
 import { AlertTriangle, Calendar, Calculator, Clipboard, FileSpreadsheet, ListChecks, Plane, RotateCcw, Truck } from './icons.jsx';
 import { MODE_PLAIN, NEG, NumInput, POS, fmtNum, fmtUsd, role } from './ui.jsx';
@@ -86,13 +86,14 @@ function YearScenario({ yr, a, alt, data, today, onMode, onMethod, onNeed, onQty
           <span className="ml-auto text-right text-[11px] tabular-nums">
             <span className="block text-[9px] font-semibold uppercase text-chem-gray2">{yr.balance >= 0 ? 'Reste non utilisé' : 'Dépassement du budget'}</span>
             <span className={`text-[15px] ${r.text}`}>{fmtUsd(Math.abs(yr.balance), 0)}</span>
+            {yr.carryOut > 0.5 && <span className="block text-[9px] text-chem-gray2">reporté : {CARRY_LABEL[yr.carryRule].toLowerCase()}</span>}
           </span>
         </div>
       </header>
 
       <div className="px-3 py-2 border-b border-chem-gray1-10 text-[11px] text-chem-gray1 space-y-1">
         <p>
-          Budget pour les produits : <strong>{fmtUsd(yr.available, 0)}</strong> · commandé : <strong>{fmtUsd(yr.total, 0)}</strong> (livré au Niger, transport compris)
+          Budget pour les produits : <strong>{fmtUsd(yr.available, 0)}</strong>{yr.bonus ? <span className="text-chem-gray2"> (dont report reçu {fmtUsd(yr.bonus, 0)})</span> : null} · commandé : <strong>{fmtUsd(yr.total, 0)}</strong> (livré au Niger, transport compris)
           {manual ? ' · quantités ajustées à la main' : ' · tout le budget est réparti selon le split PSN'}.
         </p>
         <p className="text-[10px] text-chem-gray2 flex items-start gap-1.5"><Calendar w={11} className="mt-0.5 text-chem-darkblue" /> {deliverySentence(a, yr.mode)}</p>
